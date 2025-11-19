@@ -1,0 +1,14 @@
+[
+  {
+    "Id": 1,
+    "LecturerName": "Ruben Amorim",
+    "Month": "June",
+    "HoursWorked": 312.0,
+    "HourlyRate": 345.00,
+    "AdditionalNotes": null,
+    "SupportingDocument": "ea45d20f-52f9-4555-b4c5-5c92f57f85f1.png|images.png",
+    "Status": "Rejected",
+    "SubmittedDate": "2025-10-21T23:16:49.170858+02:00",
+    "RejectionReason": "hell nah"
+  }
+]

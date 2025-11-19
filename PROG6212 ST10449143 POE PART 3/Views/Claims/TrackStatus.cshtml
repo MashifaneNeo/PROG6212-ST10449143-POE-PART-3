@@ -1,0 +1,211 @@
+﻿@model List<PROG6212_ST10449143_POE_PART_1.Models.Claim>
+@{
+    ViewData["Title"] = "Track Claim Status";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container mt-4">
+    <h2 class="text-primary mb-4">
+        <i class="fas fa-tasks me-2"></i>Track Claim Status
+    </h2>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i>No claims submitted yet.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var claim in Model)
+            {
+                <div class="col-lg-8 mb-4 mx-auto">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Claim #@claim.Id - @claim.Month</h6>
+                            <div>
+                                <span class="badge @GetStatusBadgeClass(claim.Status) me-2">@claim.Status</span>
+                                <form asp-action="Delete" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@claim.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Are you sure you want to delete claim #@claim.Id? This action cannot be undone.')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress mb-4" style="height: 10px;">
+                                <div class="progress-bar @GetProgressBarClass(claim.Status)"
+                                     style="width: @GetProgressPercentage(claim.Status)%"
+                                     role="progressbar"
+                                     aria-valuenow="@GetProgressPercentage(claim.Status)"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <div class="@GetStepIconClass("Submitted", claim.Status) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                         style="width: 50px; height: 50px;">
+                                        <i class="fas fa-paper-plane fs-5"></i>
+                                    </div>
+                                    <small class="d-block fw-bold mt-1">Submitted</small>
+                                    <small class="text-muted">@claim.SubmittedDate.ToString("MMM dd")</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="@GetStepIconClass("Under Review", claim.Status) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                         style="width: 50px; height: 50px;">
+                                        <i class="fas fa-search fs-5"></i>
+                                    </div>
+                                    <small class="d-block fw-bold mt-1">Under Review</small>
+                                    <small class="text-muted">Coordinator</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="@GetStepIconClass("Approved", claim.Status) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                         style="width: 50px; height: 50px;">
+                                        <i class="fas fa-check fs-5"></i>
+                                    </div>
+                                    <small class="d-block fw-bold mt-1">Approved</small>
+                                    <small class="text-muted">Final</small>
+                                </div>
+                            </div>
+
+                            <div class="row small text-muted mt-4">
+                                <div class="col-md-6 mb-2">
+                                    <strong>Lecturer:</strong> @claim.LecturerName
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Amount:</strong> R @claim.TotalAmount.ToString("0.00")
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Hours Worked:</strong> @claim.HoursWorked.ToString("0.00")
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Hourly Rate:</strong> R @claim.HourlyRate.ToString("0.00")
+                                </div>
+                                @if (!string.IsNullOrEmpty(claim.AdditionalNotes))
+                                {
+                                    <div class="col-12 mb-2">
+                                        <strong>Notes:</strong> @claim.AdditionalNotes
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(claim.SupportingDocument))
+                                {
+                                    <div class="col-12 mb-2">
+                                        <strong>Document:</strong>
+                                        <span class="text-primary">
+                                            <i class="fas fa-file me-1"></i>
+                                            @{
+                                                var fileParts = claim.SupportingDocument.Split('|');
+                                                var displayName = fileParts.Length > 1 ? fileParts[1] : "Attached Document";
+                                            }
+                                            @displayName
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (claim.Status == "Rejected" && !string.IsNullOrEmpty(claim.RejectionReason))
+                            {
+                                <div class="alert alert-danger mt-3 mb-0">
+                                    <strong><i class="fas fa-exclamation-triangle me-1"></i>Rejection Reason:</strong> @claim.RejectionReason
+                                </div>
+                            }
+
+                            @if (claim.Status == "Approved")
+                            {
+                                <div class="alert alert-success mt-3 mb-0">
+                                    <strong><i class="fas fa-check-circle me-1"></i>Claim Approved:</strong> This claim has been fully approved and processed.
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@functions {
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Submitted" => "bg-secondary",
+            "Under Review" => "bg-warning",
+            "Approved" => "bg-success",
+            "Rejected" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetProgressBarClass(string status)
+    {
+        return status switch
+        {
+            "Rejected" => "bg-danger",
+            "Approved" => "bg-success",
+            "Under Review" => "bg-warning",
+            "Submitted" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private int GetProgressPercentage(string status)
+    {
+        return status switch
+        {
+            "Submitted" => 33,
+            "Under Review" => 66,
+            "Approved" => 100,
+            "Rejected" => 100,
+            _ => 0
+        };
+    }
+
+    private string GetStepIconClass(string step, string claimStatus)
+    {
+        var stepOrder = new Dictionary<string, int>
+        {
+            ["Submitted"] = 1,
+            ["Under Review"] = 2,
+            ["Approved"] = 3
+        };
+
+        var statusOrder = new Dictionary<string, int>
+        {
+            ["Submitted"] = 1,
+            ["Under Review"] = 2,
+            ["Approved"] = 3,
+            ["Rejected"] = 4
+        };
+
+        var currentStep = statusOrder.ContainsKey(claimStatus) ? statusOrder[claimStatus] : 0;
+        var stepIndex = stepOrder[step];
+
+        if (claimStatus == "Rejected" && stepIndex >= 2)
+            return "bg-danger text-white";
+        if (stepIndex <= currentStep)
+            return "bg-success text-white";
+        return "bg-light text-muted border";
+    }
+}

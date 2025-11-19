@@ -1,0 +1,103 @@
+﻿@model List<PROG6212_ST10449143_POE_PART_1.Models.Claim>
+@{
+    ViewData["Title"] = "All Submitted Claims";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container mt-4">
+    <h2 class="text-primary mb-4">
+        <i class="fas fa-list-alt me-2"></i>All Submitted Claims
+    </h2>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i>No claims have been submitted yet.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Claim ID</th>
+                                <th>Lecturer Name</th>
+                                <th>Month</th>
+                                <th>Hours</th>
+                                <th>Rate</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                                <th>Submitted Date</th>
+                                <th>Document</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in Model)
+                            {
+                                <tr>
+                                    <td>@claim.Id</td>
+                                    <td>@claim.LecturerName</td>
+                                    <td>@claim.Month</td>
+                                    <td>@claim.HoursWorked.ToString("0.00")</td>
+                                    <td>R @claim.HourlyRate.ToString("0.00")</td>
+                                    <td class="fw-bold text-success">R @claim.TotalAmount.ToString("0.00")</td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(claim.Status)">
+                                            @claim.Status
+                                        </span>
+                                    </td>
+                                    <td>@claim.SubmittedDate.ToString("MMM dd, yyyy")</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(claim.SupportingDocument))
+                                        {
+                                            <span class="text-primary">
+                                                <i class="fas fa-file me-1"></i>Attached
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">None</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@functions {
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Submitted" => "bg-secondary",
+            "Under Review" => "bg-warning",
+            "Approved" => "bg-success",
+            "Rejected" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

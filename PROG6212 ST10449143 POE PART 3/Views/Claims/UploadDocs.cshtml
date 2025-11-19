@@ -1,0 +1,33 @@
+﻿@{
+    ViewData["Title"] = "Upload Documents";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container mt-5">
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-body p-4">
+            <h2 class="text-center text-primary mb-4">
+                <i class="fas fa-file-upload"></i> Upload Supporting Documents
+            </h2>
+
+            <form>
+                <div class="mb-3">
+                    <label class="form-label">Select File</label>
+                    <input type="text" class="form-control" placeholder="Choose a file..." readonly>
+                    <button type="button" class="btn btn-outline-secondary mt-2">
+                        <i class="fas fa-folder-open"></i> Browse
+                    </button>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Description (Optional)</label>
+                    <textarea class="form-control" rows="3" placeholder="Add a short note about this file"></textarea>
+                </div>
+
+                <button type="button" class="btn btn-success w-100">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
