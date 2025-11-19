@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PROG6212_ST10449143_POE_PART_1.Models;
@@ -12,25 +13,59 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         private readonly IClaimService _claimService;
         private readonly IWebHostEnvironment _environment;
         private readonly AppDbContext _context;
+        private readonly UserManager<User> _userManager;
 
-        public ClaimsController(IClaimService claimService, IWebHostEnvironment environment, AppDbContext context)
+        public ClaimsController(IClaimService claimService, IWebHostEnvironment environment, AppDbContext context, UserManager<User> userManager)
         {
             _claimService = claimService;
             _environment = environment;
             _context = context;
+            _userManager = userManager;
         }
 
-        public IActionResult Submit()
+        [Authorize(Roles = "Lecturer")]
+        public async Task<IActionResult> Submit()
         {
-            var model = new ClaimViewModel();
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var model = new ClaimViewModel
+            {
+                LecturerName = $"{currentUser.FirstName} {currentUser.LastName}",
+                HourlyRate = currentUser.HourlyRate
+            };
+
             return View(model);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Lecturer")]
         public async Task<IActionResult> Submit(ClaimViewModel model, IFormFile supportingDocument)
         {
+            ModelState.Remove("LecturerName");
+            ModelState.Remove("HourlyRate");
             ModelState.Remove("AdditionalNotes");
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            // Validate hours worked (max 180 hours per month) - Fixed decimal comparison
+            if (model.HoursWorked > 180m)
+            {
+                ModelState.AddModelError("HoursWorked", "Hours worked cannot exceed 180 hours per month.");
+            }
+
+            if (model.HoursWorked < 0.5m) // Fixed: using 0.5m for decimal
+            {
+                ModelState.AddModelError("HoursWorked", "Hours worked must be at least 0.5 hours.");
+            }
 
             if (ModelState.IsValid)
             {
@@ -45,12 +80,16 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     if (!allowedExtensions.Contains(extension))
                     {
                         ModelState.AddModelError("", "Only PDF, DOCX, XLSX, JPG, PNG files are allowed.");
+                        model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
+                        model.HourlyRate = currentUser.HourlyRate;
                         return View(model);
                     }
 
                     if (supportingDocument.Length > maxFileSize)
                     {
                         ModelState.AddModelError("", "File size must be less than 5MB.");
+                        model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
+                        model.HourlyRate = currentUser.HourlyRate;
                         return View(model);
                     }
 
@@ -80,6 +119,8 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     {
                         Console.WriteLine($"File upload error: {ex.Message}");
                         ModelState.AddModelError("", "Error uploading file. Please try again.");
+                        model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
+                        model.HourlyRate = currentUser.HourlyRate;
                         return View(model);
                     }
                 }
@@ -88,13 +129,14 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 {
                     var claim = new Claim
                     {
-                        LecturerName = model.LecturerName,
+                        UserId = currentUser.Id,
                         Month = model.Month,
                         HoursWorked = model.HoursWorked,
-                        HourlyRate = model.HourlyRate,
+                        HourlyRate = currentUser.HourlyRate, // Use the rate from user profile
                         AdditionalNotes = model.AdditionalNotes ?? string.Empty,
                         SupportingDocument = fileName,
-                        Status = "Submitted"
+                        Status = "Submitted",
+                        SubmittedDate = DateTime.Now
                     };
 
                     await _claimService.AddClaimAsync(claim);
@@ -105,18 +147,38 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 {
                     Console.WriteLine($"Error saving claim: {ex.Message}");
                     ModelState.AddModelError("", "An error occurred while saving your claim. Please try again.");
+                    model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
+                    model.HourlyRate = currentUser.HourlyRate;
                     return View(model);
                 }
             }
 
+            // Repopulate user data if validation fails
+            model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
+            model.HourlyRate = currentUser.HourlyRate;
             return View(model);
         }
 
+        [Authorize(Roles = "Lecturer,Coordinator,HR")]
         public async Task<IActionResult> ViewClaims()
         {
             try
             {
-                var claims = await _claimService.GetAllClaimsAsync();
+                var currentUser = await _userManager.GetUserAsync(User);
+                List<Claim> claims;
+
+                if (User.IsInRole("Lecturer"))
+                {
+                    // Lecturers only see their own claims
+                    var allClaims = await _claimService.GetAllClaimsAsync();
+                    claims = allClaims.Where(c => c.UserId == currentUser?.Id).ToList();
+                }
+                else
+                {
+                    // Coordinators and HR see all claims
+                    claims = await _claimService.GetAllClaimsAsync();
+                }
+
                 return View(claims);
             }
             catch (Exception ex)
@@ -127,6 +189,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             }
         }
 
+        [Authorize(Roles = "Coordinator,HR")]
         public async Task<IActionResult> Approvals()
         {
             try
@@ -158,6 +221,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Coordinator,HR")]
         public async Task<IActionResult> Approve(int id)
         {
             try
@@ -172,7 +236,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     return RedirectToAction("Approvals");
                 }
 
-                Console.WriteLine($"Found claim: {claim.LecturerName}, Current status: {claim.Status}");
+                Console.WriteLine($"Found claim for user: {claim.UserId}, Current status: {claim.Status}");
 
                 await _claimService.UpdateClaimStatusAsync(id, "Approved");
 
@@ -190,6 +254,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Coordinator,HR")]
         public async Task<IActionResult> Reject(int id, string rejectionReason)
         {
             try
@@ -225,10 +290,21 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Lecturer,HR")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
+                var currentUser = await _userManager.GetUserAsync(User);
+                var claim = await _claimService.GetClaimByIdAsync(id);
+
+                // Security check: Lecturers can only delete their own claims
+                if (User.IsInRole("Lecturer") && claim?.UserId != currentUser?.Id)
+                {
+                    TempData["ErrorMessage"] = "You can only delete your own claims.";
+                    return RedirectToAction("ViewClaims");
+                }
+
                 var result = await _claimService.DeleteClaimAsync(id);
                 if (result)
                 {
@@ -248,18 +324,138 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return RedirectToAction("ViewClaims");
         }
 
+        [Authorize(Roles = "Lecturer")]
         public async Task<IActionResult> TrackStatus()
         {
             try
             {
-                var claims = await _claimService.GetAllClaimsAsync();
-                return View(claims);
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var allClaims = await _claimService.GetAllClaimsAsync();
+                var userClaims = allClaims.Where(c => c.UserId == currentUser.Id)
+                                         .OrderByDescending(c => c.SubmittedDate)
+                                         .ToList();
+
+                return View(userClaims);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading track status: {ex.Message}");
                 TempData["ErrorMessage"] = "Error loading claim status. Please try again.";
                 return View(new List<Claim>());
+            }
+        }
+
+        [Authorize(Roles = "Lecturer,Coordinator,HR")]
+        public async Task<IActionResult> Details(int id)
+        {
+            try
+            {
+                var claim = await _claimService.GetClaimByIdAsync(id);
+                if (claim == null)
+                {
+                    TempData["ErrorMessage"] = "Claim not found.";
+                    return RedirectToAction("ViewClaims");
+                }
+
+                // Security check: Lecturers can only view their own claim details
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (User.IsInRole("Lecturer") && claim.UserId != currentUser?.Id)
+                {
+                    TempData["ErrorMessage"] = "Access denied.";
+                    return RedirectToAction("TrackStatus");
+                }
+
+                return View(claim);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading claim details: {ex.Message}");
+                TempData["ErrorMessage"] = "Error loading claim details.";
+                return RedirectToAction("ViewClaims");
+            }
+        }
+
+        [Authorize(Roles = "Lecturer")]
+        [HttpPost]
+        public async Task<IActionResult> CalculateTotal(decimal hoursWorked)
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, error = "User not found" });
+                }
+
+                // Validate hours - Fixed decimal comparisons
+                if (hoursWorked < 0.5m)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        error = "Hours must be at least 0.5",
+                        isValid = false
+                    });
+                }
+
+                if (hoursWorked > 180m)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        error = "Hours cannot exceed 180 per month",
+                        isValid = false
+                    });
+                }
+
+                var hourlyRate = currentUser.HourlyRate;
+                var totalAmount = hoursWorked * hourlyRate;
+                var remainingHours = 180m - hoursWorked; // Fixed: using 180m for decimal
+                var progressPercentage = (double)(hoursWorked / 180m) * 100; // Fixed: cast to double for percentage
+
+                return Json(new
+                {
+                    success = true,
+                    hourlyRate = hourlyRate,
+                    totalAmount = totalAmount,
+                    remainingHours = remainingHours,
+                    progressPercentage = progressPercentage,
+                    isValid = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Lecturer")]
+        [HttpGet]
+        public async Task<IActionResult> GetUserProfileData()
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, error = "User not found" });
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    lecturerName = $"{currentUser.FirstName} {currentUser.LastName}",
+                    hourlyRate = currentUser.HourlyRate
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
             }
         }
     }

@@ -20,7 +20,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
             modelBuilder.Entity<Claim>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.LecturerName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Month).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.HoursWorked).HasColumnType("decimal(10,2)");
                 entity.Property(e => e.HourlyRate).HasColumnType("decimal(10,2)");

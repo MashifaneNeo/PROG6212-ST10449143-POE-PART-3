@@ -38,16 +38,31 @@
                     <form asp-action="Submit" method="post" enctype="multipart/form-data" id="claimForm">
                         @Html.AntiForgeryToken()
 
+                        <!-- Lecturer Information (Read-only) -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label fw-semibold">Lecturer Name</label>
+                                    <input type="text" class="form-control bg-light" value="@Model.LecturerName" readonly />
+                                    <small class="text-muted">Pulled from your profile</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label fw-semibold">Hourly Rate</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">R</span>
+                                        <input type="text" class="form-control bg-light" value="@Model.HourlyRate.ToString("0.00")" readonly />
+                                    </div>
+                                    <small class="text-muted">Set by HR department</small>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label asp-for="LecturerName" class="form-label fw-semibold">Lecturer Name *</label>
-                                <input asp-for="LecturerName" class="form-control" placeholder="Enter your full name" value="@Model.LecturerName" />
-                                <span asp-validation-for="LecturerName" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
                                 <label asp-for="Month" class="form-label fw-semibold">Claim Month *</label>
-                                <select asp-for="Month" class="form-select">
+                                <select asp-for="Month" class="form-select" required>
                                     <option value="">-- Select Month --</option>
                                     @foreach (var month in Model.AvailableMonths)
                                     {
@@ -56,25 +71,21 @@
                                 </select>
                                 <span asp-validation-for="Month" class="text-danger small"></span>
                             </div>
-                        </div>
 
-                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label asp-for="HoursWorked" class="form-label fw-semibold">Hours Worked *</label>
                                 <div class="input-group">
-                                    <input asp-for="HoursWorked" class="form-control" placeholder="0.0" min="0" step="0.5" value="@(Model.HoursWorked > 0 ? Model.HoursWorked.ToString("0.0") : "0.0")" />
+                                    <input asp-for="HoursWorked" class="form-control"
+                                           placeholder="0.0"
+                                           min="0.5"
+                                           max="180"
+                                           step="0.5"
+                                           value="@(Model.HoursWorked > 0 ? Model.HoursWorked.ToString("0.0") : "0.0")"
+                                           id="hoursWorkedInput" />
                                     <span class="input-group-text">hours</span>
                                 </div>
                                 <span asp-validation-for="HoursWorked" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="HourlyRate" class="form-label fw-semibold">Hourly Rate *</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">R</span>
-                                    <input asp-for="HourlyRate" class="form-control" placeholder="0.00" min="0" step="0.01" value="@(Model.HourlyRate > 0 ? Model.HourlyRate.ToString("0.00") : "0.00")" />
-                                </div>
-                                <span asp-validation-for="HourlyRate" class="text-danger small"></span>
+                                <small class="text-muted">Maximum 180 hours per month</small>
                             </div>
                         </div>
 
@@ -104,29 +115,38 @@
                             </div>
                         </div>
 
-                        <div class="bg-light p-3 rounded-2 mb-4" id="calculationPreview">
-                            <h6 class="fw-semibold text-primary mb-2">Claim Summary</h6>
+                        <!-- Auto-Calculation Preview -->
+                        <div class="bg-light p-4 rounded-2 mb-4" id="calculationPreview">
+                            <h6 class="fw-semibold text-primary mb-3 text-center">Claim Summary</h6>
                             <div class="row text-center">
-                                <div class="col-md-4">
-                                    <small class="text-muted">Hours</small>
-                                    <div class="fw-bold fs-5" id="hoursPreview">@(Model.HoursWorked > 0 ? Model.HoursWorked.ToString("0.0") : "0.0")</div>
+                                <div class="col-md-3 mb-2">
+                                    <small class="text-muted d-block">Hours Worked</small>
+                                    <div class="fw-bold fs-5 text-primary" id="hoursPreview">0.0</div>
                                 </div>
-                                <div class="col-md-4">
-                                    <small class="text-muted">Rate</small>
-                                    <div class="fw-bold fs-5" id="ratePreview">R @(Model.HourlyRate > 0 ? Model.HourlyRate.ToString("0.00") : "0.00")</div>
+                                <div class="col-md-3 mb-2">
+                                    <small class="text-muted d-block">Hourly Rate</small>
+                                    <div class="fw-bold fs-5 text-info" id="ratePreview">R @Model.HourlyRate.ToString("0.00")</div>
                                 </div>
-                                <div class="col-md-4">
-                                    <small class="text-muted">Total</small>
-                                    <div class="fw-bold fs-5 text-success" id="totalPreview">R @((Model.HoursWorked * Model.HourlyRate).ToString("0.00"))</div>
+                                <div class="col-md-3 mb-2">
+                                    <small class="text-muted d-block">Total Amount</small>
+                                    <div class="fw-bold fs-5 text-success" id="totalPreview">R 0.00</div>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <small class="text-muted d-block">Hours Remaining</small>
+                                    <div class="fw-bold fs-5" id="remainingHours">180.0</div>
                                 </div>
                             </div>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-success" id="hoursProgress" style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted d-block text-center mt-1" id="progressText">0% of monthly limit</small>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <button type="button" class="btn btn-outline-secondary me-md-2" id="clearFormBtn">
                                 <i class="fas fa-redo me-1"></i>Clear Form
                             </button>
-                            <button type="submit" class="btn btn-success btn-lg px-4">
+                            <button type="submit" class="btn btn-success btn-lg px-4" id="submitBtn">
                                 <i class="fas fa-paper-plane me-2"></i>Submit Claim
                             </button>
                         </div>
@@ -139,6 +159,93 @@
 
 @section Scripts {
     <script>
+        // Constants
+        const MAX_HOURS = 180;
+        const HOURLY_RATE = @Model.HourlyRate;
+
+        // Auto-calculation function
+        function updateCalculationPreview() {
+            const hoursInput = document.getElementById('hoursWorkedInput');
+            const hours = parseFloat(hoursInput.value) || 0;
+            const total = hours * HOURLY_RATE;
+            const remainingHours = MAX_HOURS - hours;
+            const progressPercentage = (hours / MAX_HOURS) * 100;
+
+            // Update display
+            document.getElementById('hoursPreview').textContent = hours.toFixed(1);
+            document.getElementById('totalPreview').textContent = 'R ' + total.toFixed(2);
+            document.getElementById('remainingHours').textContent = remainingHours.toFixed(1);
+            document.getElementById('hoursProgress').style.width = progressPercentage + '%';
+
+            // Update progress text and color
+            const progressText = document.getElementById('progressText');
+            progressText.textContent = progressPercentage.toFixed(1) + '% of monthly limit';
+
+            // Visual feedback based on hours
+            const progressBar = document.getElementById('hoursProgress');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (hours > MAX_HOURS) {
+                progressBar.className = 'progress-bar bg-danger';
+                progressText.className = 'text-danger d-block text-center mt-1';
+                submitBtn.disabled = true;
+                submitBtn.title = 'Hours exceed monthly limit';
+            } else if (hours > 160) {
+                progressBar.className = 'progress-bar bg-warning';
+                progressText.className = 'text-warning d-block text-center mt-1';
+                submitBtn.disabled = false;
+                submitBtn.title = '';
+            } else {
+                progressBar.className = 'progress-bar bg-success';
+                progressText.className = 'text-muted d-block text-center mt-1';
+                submitBtn.disabled = false;
+                submitBtn.title = '';
+            }
+
+            // Show warning for high hours
+            if (hours > 160 && hours <= MAX_HOURS) {
+                if (!document.getElementById('hoursWarning')) {
+                    const warning = document.createElement('div');
+                    warning.id = 'hoursWarning';
+                    warning.className = 'alert alert-warning alert-dismissible fade show mt-2';
+                    warning.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> You are approaching the monthly limit of 180 hours.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.getElementById('calculationPreview').appendChild(warning);
+                }
+            } else {
+                const existingWarning = document.getElementById('hoursWarning');
+                if (existingWarning) {
+                    existingWarning.remove();
+                }
+            }
+        }
+
+        // Event listeners for real-time calculation
+        document.getElementById('hoursWorkedInput').addEventListener('input', function(e) {
+            let value = parseFloat(e.target.value) || 0;
+
+            // Validate maximum hours
+            if (value > MAX_HOURS) {
+                e.target.setCustomValidity(`Hours cannot exceed ${MAX_HOURS} per month`);
+            } else {
+                e.target.setCustomValidity('');
+            }
+
+            updateCalculationPreview();
+        });
+
+        document.getElementById('hoursWorkedInput').addEventListener('blur', function(e) {
+            let value = parseFloat(e.target.value) || 0;
+            if (value < 0.5) {
+                e.target.value = '0.5';
+            }
+            updateCalculationPreview();
+        });
+
+        // File upload handling
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             const fileNameElement = document.getElementById('fileName');
@@ -171,55 +278,63 @@
             }
         });
 
-        function updateCalculationPreview() {
-            const hours = parseFloat(document.getElementById('HoursWorked').value) || 0;
-            const rate = parseFloat(document.getElementById('HourlyRate').value) || 0;
-            const total = hours * rate;
-
-            document.getElementById('hoursPreview').textContent = hours.toFixed(1);
-            document.getElementById('ratePreview').textContent = 'R ' + rate.toFixed(2);
-            document.getElementById('totalPreview').textContent = 'R ' + total.toFixed(2);
-        }
-
-        document.getElementById('HoursWorked').addEventListener('input', updateCalculationPreview);
-        document.getElementById('HourlyRate').addEventListener('input', updateCalculationPreview);
-
         // Clear form functionality
         document.getElementById('clearFormBtn').addEventListener('click', function() {
-            
-            document.getElementById('LecturerName').value = '';
+            // Clear form fields
             document.getElementById('Month').value = '';
-            document.getElementById('HoursWorked').value = '0.0';
-            document.getElementById('HourlyRate').value = '0.00';
+            document.getElementById('hoursWorkedInput').value = '0.0';
             document.getElementById('AdditionalNotes').value = '';
 
-            
+            // Clear file input
             document.getElementById('fileInput').value = '';
             document.getElementById('fileName').innerHTML = 'No file selected';
             document.getElementById('fileName').className = 'mt-2 text-muted small';
             document.getElementById('fileValidation').textContent = '';
 
-            
+            // Reset calculation
             updateCalculationPreview();
 
-            // Clear any validation messages
+            // Clear validation messages
             const validationSpans = document.querySelectorAll('.text-danger');
             validationSpans.forEach(span => span.textContent = '');
 
-            // Clear any alert messages
+            // Clear alert messages
             const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => alert.remove());
+            alerts.forEach(alert => {
+                if (!alert.classList.contains('alert-success') && !alert.id.includes('Warning')) {
+                    alert.remove();
+                }
+            });
         });
 
-        
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            
-            const lecturerName = document.getElementById('LecturerName').value;
-            if (!lecturerName) {
-                document.getElementById('HoursWorked').value = '0.0';
-                document.getElementById('HourlyRate').value = '0.00';
-            }
             updateCalculationPreview();
+
+            // Set initial hours if not set
+            const hoursInput = document.getElementById('hoursWorkedInput');
+            if (!hoursInput.value || hoursInput.value === '0.0') {
+                hoursInput.value = '0.0';
+            }
+        });
+
+        // Form submission validation
+        document.getElementById('claimForm').addEventListener('submit', function(e) {
+            const hours = parseFloat(document.getElementById('hoursWorkedInput').value) || 0;
+
+            if (hours > MAX_HOURS) {
+                e.preventDefault();
+                alert(`Error: Hours worked cannot exceed ${MAX_HOURS} hours per month.`);
+                return false;
+            }
+
+            if (hours < 0.5) {
+                e.preventDefault();
+                alert('Error: Hours worked must be at least 0.5 hours.');
+                return false;
+            }
+
+            return true;
         });
     </script>
 }

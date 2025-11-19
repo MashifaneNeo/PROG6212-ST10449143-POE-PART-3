@@ -10,10 +10,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         public int Id { get; set; }
 
         [Required]
-        [StringLength(100)]
-        public string LecturerName { get; set; }
-
-        [Required]
         [StringLength(20)]
         public string Month { get; set; }
 
@@ -46,7 +42,8 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         [Column(TypeName = "nvarchar(1000)")]
         public string RejectionReason { get; set; }
 
-        public string? UserId { get; set; }
+        [Required]
+        public string UserId { get; set; }
         public virtual User? User { get; set; }
 
         public Claim()
