@@ -76,6 +76,44 @@
             margin-bottom: 2rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+
+        .user-dropdown {
+            background: #34495E;
+            border: none;
+            color: white;
+        }
+
+            .user-dropdown:hover {
+                background: #1ABC9C;
+            }
+
+        .dropdown-menu {
+            background: #2C3E50;
+            border: 1px solid #34495E;
+        }
+
+        .dropdown-item {
+            color: white;
+        }
+
+            .dropdown-item:hover {
+                background: #1ABC9C;
+                color: white;
+            }
+
+        .hr-section {
+            border-top: 2px solid #1ABC9C;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+
+            .hr-section h6 {
+                color: #1ABC9C;
+                font-size: 0.9rem;
+                margin-bottom: 15px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
     </style>
 </head>
 <body>
@@ -83,21 +121,62 @@
         <h2>
             <i class="fas fa-file-contract me-2"></i>CMCS
         </h2>
+
         <a asp-controller="Home" asp-action="Index">
             <i class="fas fa-home"></i>Home
         </a>
-        <a asp-controller="Claims" asp-action="Submit">
-            <i class="fas fa-file-invoice-dollar"></i>Submit Claim
-        </a>
-        <a asp-controller="Claims" asp-action="ViewClaims">
-            <i class="fas fa-list-alt"></i>View Claims
-        </a>
-        <a asp-controller="Claims" asp-action="Approvals">
-            <i class="fas fa-check-circle"></i>Approvals
-        </a>
-        <a asp-controller="Claims" asp-action="TrackStatus">
-            <i class="fas fa-tasks"></i>Track Status
-        </a>
+
+        @if (User.Identity.IsAuthenticated)
+        {
+            <!-- Lecturer & General User Features -->
+            <a asp-controller="Claims" asp-action="Submit">
+                <i class="fas fa-file-invoice-dollar"></i>Submit Claim
+            </a>
+            <a asp-controller="Claims" asp-action="TrackStatus">
+                <i class="fas fa-tasks"></i>Track Status
+            </a>
+
+            <!-- Coordinator & HR Features -->
+            @if (User.IsInRole("Coordinator") || User.IsInRole("HR"))
+            {
+                <a asp-controller="Claims" asp-action="ViewClaims">
+                    <i class="fas fa-list-alt"></i>View Claims
+                </a>
+                <a asp-controller="Claims" asp-action="Approvals">
+                    <i class="fas fa-check-circle"></i>Approvals
+                </a>
+            }
+
+            <!-- HR Only Features -->
+            @if (User.IsInRole("HR"))
+            {
+                <div class="hr-section">
+                    <h6>HR Management</h6>
+                    <a asp-controller="HR" asp-action="Dashboard">
+                        <i class="fas fa-tachometer-alt"></i>HR Dashboard
+                    </a>
+                    <a asp-controller="HR" asp-action="UserManagement">
+                        <i class="fas fa-users"></i>User Management
+                    </a>
+                    <a asp-controller="HR" asp-action="CreateUser">
+                        <i class="fas fa-user-plus"></i>Create User
+                    </a>
+                    <a asp-controller="HR" asp-action="Reports">
+                        <i class="fas fa-chart-bar"></i>Reports
+                    </a>
+                    <a asp-controller="HR" asp-action="AutomatedProcessing">
+                        <i class="fas fa-robot"></i>Auto-Process
+                    </a>
+                </div>
+            }
+        }
+        else
+        {
+            <!-- Public Navigation (when not logged in) -->
+            <a asp-controller="Account" asp-action="Login">
+                <i class="fas fa-sign-in-alt"></i>Login
+            </a>
+        }
     </div>
 
     <div class="content">
@@ -106,10 +185,50 @@
                 <span class="navbar-brand mb-0 h1 text-primary">
                     <i class="fas fa-university me-2"></i>Contract Monthly Claim System
                 </span>
-                <div class="d-flex">
-                    <span class="navbar-text text-muted">
-                        <i class="fas fa-user-circle me-1"></i>Welcome
-                    </span>
+                <div class="d-flex align-items-center">
+                    @if (User.Identity.IsAuthenticated)
+                    {
+                        <div class="dropdown">
+                            <button class="btn user-dropdown dropdown-toggle d-flex align-items-center" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user-circle me-2"></i>
+                                <span>@User.Identity.Name</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li>
+                                    <span class="dropdown-item-text small text-muted">
+                                        <i class="fas fa-user-tag me-1"></i>
+                                        @{
+                                            var roles = "";
+                                            if (User.IsInRole("HR")) roles = "HR Manager";
+                                            else if (User.IsInRole("Coordinator")) roles = "Coordinator";
+                                            else if (User.IsInRole("Lecturer")) roles = "Lecturer";
+                                        }
+                                        @roles
+                                    </span>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="fas fa-cog me-2"></i>Profile Settings
+                                    </a>
+                                </li>
+                                <li>
+                                    <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <a asp-controller="Account" asp-action="Login" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                    }
                 </div>
             </div>
         </nav>
@@ -117,7 +236,6 @@
         @RenderBody()
     </div>
 
-    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>

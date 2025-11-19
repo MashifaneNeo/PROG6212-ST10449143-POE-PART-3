@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PROG6212_ST10449143_POE_PART_1.Models;
 using PROG6212_ST10449143_POE_PART_1.Services;
 
 namespace PROG6212_ST10449143_POE_PART_1.Controllers
 {
+    [Authorize(Roles = "Lecturer,Coordinator,HR")]
     public class ClaimsController : Controller
     {
         private readonly IClaimService _claimService;

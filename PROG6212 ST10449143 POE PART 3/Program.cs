@@ -12,8 +12,8 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add Identity
-builder.Services.AddDefaultIdentity<User>(options =>
+// Add Identity with proper configuration
+builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
     options.Password.RequiredLength = 6;
     options.Password.RequireDigit = true;
@@ -21,8 +21,8 @@ builder.Services.AddDefaultIdentity<User>(options =>
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = false;
     options.SignIn.RequireConfirmedAccount = false;
+    options.User.RequireUniqueEmail = true;
 })
-.AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
@@ -59,6 +59,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// Seed roles and admin user
 using (var scope = app.Services.CreateScope())
 {
     var serviceProvider = scope.ServiceProvider;
@@ -68,15 +69,18 @@ using (var scope = app.Services.CreateScope())
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<User>>();
 
+        // Create roles
         string[] roleNames = { "HR", "Lecturer", "Coordinator" };
         foreach (var roleName in roleNames)
         {
             if (!await roleManager.RoleExistsAsync(roleName))
             {
                 await roleManager.CreateAsync(new IdentityRole(roleName));
+                Console.WriteLine($"Created role: {roleName}");
             }
         }
 
+        // Create default HR user
         var hrUser = new User
         {
             FirstName = "HR",
@@ -97,8 +101,13 @@ using (var scope = app.Services.CreateScope())
                 await userManager.AddToRoleAsync(hrUser, "HR");
                 Console.WriteLine("HR user created successfully!");
             }
+            else
+            {
+                Console.WriteLine($"Failed to create HR user: {string.Join(", ", createHR.Errors.Select(e => e.Description))}");
+            }
         }
 
+        // Create a sample lecturer
         var lecturerUser = new User
         {
             FirstName = "John",
@@ -119,11 +128,16 @@ using (var scope = app.Services.CreateScope())
                 await userManager.AddToRoleAsync(lecturerUser, "Lecturer");
                 Console.WriteLine("Sample lecturer created successfully!");
             }
+            else
+            {
+                Console.WriteLine($"Failed to create lecturer: {string.Join(", ", createLecturer.Errors.Select(e => e.Description))}");
+            }
         }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error seeding database: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
     }
 }
 

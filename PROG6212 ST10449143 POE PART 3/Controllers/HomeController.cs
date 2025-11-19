@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using PROG6212_ST10449143_POE_PART_1.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace PROG6212_ST10449143_POE_PART_1.Controllers
 {
@@ -15,6 +16,15 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
         public IActionResult Index()
         {
+            if (User.Identity.IsAuthenticated)
+            {
+                if (User.IsInRole("HR"))
+                    return RedirectToAction("Dashboard", "HR");
+                else if (User.IsInRole("Lecturer"))
+                    return RedirectToAction("Submit", "Claims");
+                else if (User.IsInRole("Coordinator"))
+                    return RedirectToAction("Approvals", "Claims");
+            }
             return View();
         }
 
