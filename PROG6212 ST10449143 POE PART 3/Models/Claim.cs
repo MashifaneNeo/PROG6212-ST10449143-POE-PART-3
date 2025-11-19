@@ -46,6 +46,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         [Column(TypeName = "nvarchar(1000)")]
         public string RejectionReason { get; set; }
 
+        public string UserId { get; set; }
+        public virtual User User { get; set; }
+
         public Claim()
         {
             Status ??= "Submitted";
