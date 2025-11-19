@@ -1,0 +1,178 @@
+﻿@model PROG6212_ST10449143_POE_PART_1.Models.ReportFilterViewModel
+@{
+    ViewData["Title"] = "Reports & Analytics";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-6 text-primary">
+            <i class="fas fa-chart-bar me-2"></i>Reports & Analytics
+        </h1>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow border-0">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Report Filters</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="GenerateReport" method="post" id="reportForm">
+                        @Html.AntiForgeryToken()
+
+                        <div class="mb-3">
+                            <label asp-for="ReportType" class="form-label fw-semibold">Report Type *</label>
+                            <select asp-for="ReportType" class="form-select" required>
+                                <option value="">-- Select Report Type --</option>
+                                <option value="Monthly">Monthly Summary</option>
+                                <option value="User">User Claims Report</option>
+                                <option value="Department">Department Summary</option>
+                                <option value="All">All Claims</option>
+                            </select>
+                            <span asp-validation-for="ReportType" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="StartDate" class="form-label fw-semibold">Start Date</label>
+                                <input asp-for="StartDate" type="date" class="form-control" />
+                                <span asp-validation-for="StartDate" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="EndDate" class="form-label fw-semibold">End Date</label>
+                                <input asp-for="EndDate" type="date" class="form-control" />
+                                <span asp-validation-for="EndDate" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Department" class="form-label fw-semibold">Department</label>
+                            <select asp-for="Department" class="form-select">
+                                <option value="">All Departments</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business</option>
+                                <option value="Mathematics">Mathematics</option>
+                                <option value="Physics">Physics</option>
+                                <option value="Chemistry">Chemistry</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Status" class="form-label fw-semibold">Status</label>
+                            <select asp-for="Status" class="form-select">
+                                <option value="">All Statuses</option>
+                                <option value="Submitted">Submitted</option>
+                                <option value="Under Review">Under Review</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-file-pdf me-2"></i>Generate PDF Report
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow border-0">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Quick Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h3>@ViewBag.TotalClaims</h3>
+                                    <small>Total Claims</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h3>@ViewBag.ApprovedClaims</h3>
+                                    <small>Approved</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <h3>@ViewBag.PendingClaims</h3>
+                                    <small>Pending</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h3>R @ViewBag.TotalAmount</h3>
+                                    <small>Total Amount</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6>Recent Report Templates</h6>
+                        <div class="list-group">
+                            <a href="#" class="list-group-item list-group-item-action">
+                                <i class="fas fa-file-pdf text-danger me-2"></i>
+                                <strong>Monthly Claims Report - @DateTime.Now.ToString("MMMM yyyy")</strong>
+                                <small class="text-muted d-block">Summary of all claims for current month</small>
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action">
+                                <i class="fas fa-file-excel text-success me-2"></i>
+                                <strong>Department Performance Report</strong>
+                                <small class="text-muted d-block">Claims analysis by department</small>
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action">
+                                <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+                                <strong>Payment Processing Report</strong>
+                                <small class="text-muted d-block">Approved claims ready for payment</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default date range to current month
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+            document.getElementById('StartDate').value = formatDate(firstDay);
+            document.getElementById('EndDate').value = formatDate(lastDay);
+
+            function formatDate(date) {
+                return date.toISOString().split('T')[0];
+            }
+
+            // Form validation
+            document.getElementById('reportForm').addEventListener('submit', function(e) {
+                const reportType = document.getElementById('ReportType').value;
+                if (!reportType) {
+                    e.preventDefault();
+                    alert('Please select a report type.');
+                    return false;
+                }
+                return true;
+            });
+        });
+    </script>
+}

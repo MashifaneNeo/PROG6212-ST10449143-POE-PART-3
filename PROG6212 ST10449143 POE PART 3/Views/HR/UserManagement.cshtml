@@ -1,0 +1,174 @@
+﻿@model List<PROG6212_ST10449143_POE_PART_1.Models.User>
+@{
+    ViewData["Title"] = "User Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-6 text-primary">
+            <i class="fas fa-users me-2"></i>User Management
+        </h1>
+        <a href="@Url.Action("CreateUser")" class="btn btn-success">
+            <i class="fas fa-user-plus me-1"></i>Create New User
+        </a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i>No users found. <a href="@Url.Action("CreateUser")" class="alert-link">Create the first user</a>.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow border-0">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped" id="usersTable">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Employee ID</th>
+                                <th>Department</th>
+                                <th>Hourly Rate</th>
+                                <th>Status</th>
+                                <th>Date Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@user.FirstName @user.LastName</strong>
+                                    </td>
+                                    <td>@user.Email</td>
+                                    <td>@(user.EmployeeId ?? "N/A")</td>
+                                    <td>@(user.Department ?? "N/A")</td>
+                                    <td>R @user.HourlyRate.ToString("0.00")</td>
+                                    <td>
+                                        @if (user.IsActive)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger">Inactive</span>
+                                        }
+                                    </td>
+                                    <td>@user.DateCreated.ToString("MMM dd, yyyy")</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="@Url.Action("EditUser", new { id = user.Id })"
+                                               class="btn btn-outline-primary"
+                                               title="Edit User">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-outline-info"
+                                                    title="User Details"
+                                                    onclick="showUserDetails('@user.Id')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                <!-- User details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function showUserDetails(userId) {
+            // In a real implementation, you'd fetch user details via AJAX
+            const userDetailsContent = document.getElementById('userDetailsContent');
+            userDetailsContent.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading user details...</p>
+                </div>
+            `;
+
+            // Simulate API call
+            setTimeout(() => {
+                userDetailsContent.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>User ID:</strong> ${userId}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong> <span class="badge bg-success">Active</span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <strong>Last Login:</strong> Not available
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <strong>Claims Submitted:</strong> 0
+                        </div>
+                    </div>
+                `;
+            }, 1000);
+
+            const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+            modal.show();
+        }
+
+        // Initialize DataTable if available
+        document.addEventListener('DOMContentLoaded', function() {
+            if ($.fn.DataTable) {
+                $('#usersTable').DataTable({
+                    pageLength: 25,
+                    order: [[0, 'asc']]
+                });
+            }
+        });
+    </script>
+}
