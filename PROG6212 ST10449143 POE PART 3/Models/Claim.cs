@@ -50,6 +50,22 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         public string UserId { get; set; }
         public virtual User? User { get; set; }
 
+        [StringLength(50)]
+        public string CurrentStage { get; set; } = "CoordinatorReview"; 
+
+        public string CoordinatorReviewDate { get; set; }
+        public string ManagerReviewDate { get; set; }
+
+        [StringLength(100)]
+        public string CoordinatorApprover { get; set; }
+
+        [StringLength(100)]
+        public string ManagerApprover { get; set; }
+
+        // Add workflow tracking
+        public bool IsCoordinatorApproved { get; set; } = false;
+        public bool IsManagerApproved { get; set; } = false;
+
         public Claim()
         {
             Status ??= "Submitted";

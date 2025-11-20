@@ -21,7 +21,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
             {
                 entity.HasKey(e => e.Id);
 
-                // Basic properties
                 entity.Property(e => e.Month).IsRequired().HasMaxLength(20);
 
                 entity.Property(e => e.HoursWorked).HasColumnType("decimal(10,2)").IsRequired();
@@ -42,6 +41,16 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
 
                 // Configure relationship
                 entity.HasOne(c => c.User).WithMany(u => u.Claims).HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.CurrentStage).IsRequired().HasMaxLength(50).HasDefaultValue("CoordinatorReview");
+
+                entity.Property(e => e.CoordinatorReviewDate).HasMaxLength(50);
+
+                entity.Property(e => e.ManagerReviewDate).HasMaxLength(50);
+
+                entity.Property(e => e.CoordinatorApprover).HasMaxLength(100);
+
+                entity.Property(e => e.ManagerApprover).HasMaxLength(100);
             });
 
             // Configure User entity
