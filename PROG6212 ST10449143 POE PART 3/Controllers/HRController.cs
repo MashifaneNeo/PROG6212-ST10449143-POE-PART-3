@@ -103,21 +103,62 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         {
             try
             {
-                var claims = await _context.Claims.ToListAsync();
+                var allClaims = await _context.Claims.Include(c => c.User).ToListAsync();
+                var allUsers = await _userManager.Users.ToListAsync();
 
-                ViewBag.TotalClaims = claims.Count;
-                ViewBag.ApprovedClaims = claims.Count(c => c.Status == "Approved");
-                ViewBag.PendingClaims = claims.Count(c => c.Status == "Submitted" || c.Status == "Under Review");
-                ViewBag.TotalAmount = claims.Where(c => c.Status == "Approved").Sum(c => c.TotalAmount).ToString("N2");
+                ViewBag.TotalClaims = allClaims.Count;
+                ViewBag.ApprovedClaims = allClaims.Count(c => c.Status == "Approved");
+                ViewBag.PendingClaims = allClaims.Count(c => c.Status == "Submitted" || c.Status == "Under Review");
+                ViewBag.RejectedClaims = allClaims.Count(c => c.Status == "Rejected");
+                ViewBag.TotalUsers = allUsers.Count;
+
+                // Calculate total amount for approved claims only
+                var approvedClaimsAmount = allClaims.Where(c => c.Status == "Approved").Sum(c => c.TotalAmount);
+                ViewBag.TotalAmount = approvedClaimsAmount.ToString("N2");
+
+                var approvedClaims = allClaims.Where(c => c.Status == "Approved").ToList();
+                ViewBag.AverageClaim = approvedClaims.Any() ?
+                    (approvedClaims.Sum(c => c.TotalAmount) / approvedClaims.Count).ToString("N2") : "0.00";
+
+                // Department statistics
+                var departmentStats = allClaims
+                    .Where(c => c.User != null && !string.IsNullOrEmpty(c.User.Department))
+                    .GroupBy(c => c.User.Department)
+                    .Select(g => new { Department = g.Key, Count = g.Count() })
+                    .OrderByDescending(g => g.Count)
+                    .ToList();
+
+                ViewBag.DepartmentStats = departmentStats;
+
+                var sixMonthsAgo = DateTime.Now.AddMonths(-6);
+                var recentClaims = allClaims.Where(c => c.SubmittedDate >= sixMonthsAgo).ToList();
+
+                var monthlyTrends = recentClaims
+                    .GroupBy(c => new { c.SubmittedDate.Year, c.SubmittedDate.Month })
+                    .Select(g => new
+                    {
+                        Month = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
+                        Claims = g.Count(),
+                        Amount = g.Where(c => c.Status == "Approved").Sum(c => c.TotalAmount)
+                    })
+                    .OrderBy(g => g.Month)
+                    .ToList();
+
+                ViewBag.MonthlyTrends = monthlyTrends;
+
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading report statistics: {ex.Message}");
-                // default values
                 ViewBag.TotalClaims = 0;
                 ViewBag.ApprovedClaims = 0;
                 ViewBag.PendingClaims = 0;
+                ViewBag.RejectedClaims = 0;
+                ViewBag.TotalUsers = 0;
                 ViewBag.TotalAmount = "0.00";
+                ViewBag.AverageClaim = "0.00";
+                ViewBag.DepartmentStats = new List<object>();
+                ViewBag.MonthlyTrends = new List<object>();
             }
 
             return View(new ReportFilterViewModel());
@@ -131,7 +172,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 if (!ModelState.IsValid)
                 {
                     TempData["ErrorMessage"] = "Please provide valid filter criteria.";
-                    return View("Reports", filters);
+                    return RedirectToAction("Reports");
                 }
 
                 var claims = await _hrService.GetClaimsForReportAsync(filters);
@@ -139,7 +180,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 if (!claims.Any())
                 {
                     TempData["ErrorMessage"] = "No claims found matching the specified criteria.";
-                    return View("Reports", filters);
+                    return RedirectToAction("Reports");
                 }
 
                 var reportTitle = $"Claims Report - {DateTime.Now:yyyy-MM-dd}";
@@ -152,15 +193,26 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     reportTitle = $"{filters.ReportType} Claims Report - {DateTime.Now:yyyy-MM-dd}";
                 }
 
+                Console.WriteLine($"Generating PDF report with {claims.Count} claims...");
+
                 var pdfBytes = await _hrService.GeneratePdfReportAsync(claims, reportTitle);
+
+                if (pdfBytes == null || pdfBytes.Length == 0)
+                {
+                    throw new Exception("PDF generation returned empty result");
+                }
+
+                Console.WriteLine($"PDF generated successfully: {pdfBytes.Length} bytes");
 
                 return File(pdfBytes, "application/pdf", $"{reportTitle}.pdf");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error generating report: {ex.Message}");
-                TempData["ErrorMessage"] = $"Error generating report: {ex.Message}";
-                return View("Reports", filters);
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                TempData["ErrorMessage"] = $"Error generating PDF report: {ex.Message}. Please check if QuestPDF is properly installed.";
+                return RedirectToAction("Reports");
             }
         }
 

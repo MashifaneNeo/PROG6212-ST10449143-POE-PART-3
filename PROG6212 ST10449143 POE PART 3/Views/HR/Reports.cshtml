@@ -2,6 +2,16 @@
 @{
     ViewData["Title"] = "Reports & Analytics";
     Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var totalClaims = ViewBag.TotalClaims ?? 0;
+    var approvedClaims = ViewBag.ApprovedClaims ?? 0;
+    var pendingClaims = ViewBag.PendingClaims ?? 0;
+    var rejectedClaims = ViewBag.RejectedClaims ?? 0;
+    var totalUsers = ViewBag.TotalUsers ?? 0;
+    var totalAmount = ViewBag.TotalAmount ?? "0.00";
+    var averageClaim = ViewBag.AverageClaim ?? "0.00";
+    var departmentStats = ViewBag.DepartmentStats as dynamic ?? new List<object>();
+    var monthlyTrends = ViewBag.MonthlyTrends as dynamic ?? new List<object>();
 }
 
 <div class="container-fluid mt-4">
@@ -10,22 +20,6 @@
             <i class="fas fa-chart-bar me-2"></i>Reports & Analytics
         </h1>
     </div>
-
-    @if (TempData["ErrorMessage"] != null)
-    {
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    }
-
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="fas fa-check-circle me-2"></i>@TempData["SuccessMessage"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    }
 
     <div class="row">
         <div class="col-lg-4">
@@ -52,13 +46,13 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label asp-for="StartDate" class="form-label fw-semibold">Start Date</label>
-                                <input asp-for="StartDate" type="date" class="form-control" id="StartDate" />
+                                <input asp-for="StartDate" type="date" class="form-control" />
                                 <span asp-validation-for="StartDate" class="text-danger small"></span>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label asp-for="EndDate" class="form-label fw-semibold">End Date</label>
-                                <input asp-for="EndDate" type="date" class="form-control" id="EndDate" />
+                                <input asp-for="EndDate" type="date" class="form-control" />
                                 <span asp-validation-for="EndDate" class="text-danger small"></span>
                             </div>
                         </div>
@@ -73,8 +67,6 @@
                                 <option value="Mathematics">Mathematics</option>
                                 <option value="Physics">Physics</option>
                                 <option value="Chemistry">Chemistry</option>
-                                <option value="Human Resources">Human Resources</option>
-                                <option value="Academic Affairs">Academic Affairs</option>
                             </select>
                         </div>
 
@@ -102,38 +94,54 @@
         <div class="col-lg-8">
             <div class="card shadow border-0">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Quick Statistics</h5>
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Summary</h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 col-6 mb-3">
                             <div class="card bg-primary text-white">
-                                <div class="card-body">
-                                    <h3>@(ViewBag.TotalClaims ?? 0)</h3>
+                                <div class="card-body py-3">
+                                    <h3>@totalClaims</h3>
                                     <small>Total Claims</small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 col-6 mb-3">
                             <div class="card bg-success text-white">
-                                <div class="card-body">
-                                    <h3>@(ViewBag.ApprovedClaims ?? 0)</h3>
+                                <div class="card-body py-3">
+                                    <h3>@approvedClaims</h3>
                                     <small>Approved</small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 col-6 mb-3">
                             <div class="card bg-warning text-white">
-                                <div class="card-body">
-                                    <h3>@(ViewBag.PendingClaims ?? 0)</h3>
+                                <div class="card-body py-3">
+                                    <h3>@pendingClaims</h3>
                                     <small>Pending</small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 col-6 mb-3">
                             <div class="card bg-danger text-white">
-                                <div class="card-body">
-                                    <h3>R @(ViewBag.TotalAmount ?? "0.00")</h3>
+                                <div class="card-body py-3">
+                                    <h3>@rejectedClaims</h3>
+                                    <small>Rejected</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body py-3">
+                                    <h3>@totalUsers</h3>
+                                    <small>Total Users</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-secondary text-white">
+                                <div class="card-body py-3">
+                                    <h3>R @totalAmount</h3>
                                     <small>Total Amount</small>
                                 </div>
                             </div>
@@ -141,49 +149,58 @@
                     </div>
 
                     <!-- Additional Statistics -->
-                    <div class="row text-center mt-3">
-                        <div class="col-md-4 mb-3">
-                            <div class="card bg-secondary text-white">
-                                <div class="card-body">
-                                    <h4>@(ViewBag.TotalUsers ?? 0)</h4>
-                                    <small>Total Users</small>
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h4 class="text-primary">R @averageClaim</h4>
+                                    <small class="text-muted">Average Claim Amount</small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <div class="card bg-dark text-white">
-                                <div class="card-body">
-                                    <h4>@(ViewBag.RejectedClaims ?? 0)</h4>
-                                    <small>Rejected</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body">
-                                    <h4>@(ViewBag.AverageClaimAmount ?? "0.00")</h4>
-                                    <small>Avg Claim</small>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h4 class="text-success">@(totalClaims > 0 ? ((double)approvedClaims / totalClaims * 100).ToString("0.0") : "0")%</h4>
+                                    <small class="text-muted">Approval Rate</small>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Department Statistics -->
+                    @if (departmentStats.Count > 0)
+                    {
+                        <div class="mt-4">
+                            <h6>Claims by Department</h6>
+                            <div class="list-group">
+                                @foreach (var dept in departmentStats)
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>@dept.Department</span>
+                                        <span class="badge bg-primary rounded-pill">@dept.Count</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <div class="mt-4">
-                        <h6>Quick Report Templates</h6>
+                        <h6>Recent Report Templates</h6>
                         <div class="list-group">
-                            <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="generateQuickReport('monthly')">
+                            <a href="#" class="list-group-item list-group-item-action" onclick="setMonthlyReport()">
                                 <i class="fas fa-file-pdf text-danger me-2"></i>
                                 <strong>Monthly Claims Report - @DateTime.Now.ToString("MMMM yyyy")</strong>
                                 <small class="text-muted d-block">Summary of all claims for current month</small>
                             </a>
-                            <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="generateQuickReport('department')">
+                            <a href="#" class="list-group-item list-group-item-action" onclick="setAllClaimsReport()">
                                 <i class="fas fa-file-excel text-success me-2"></i>
-                                <strong>Department Performance Report</strong>
-                                <small class="text-muted d-block">Claims analysis by department</small>
+                                <strong>All Claims Report</strong>
+                                <small class="text-muted d-block">Complete claims database export</small>
                             </a>
-                            <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="generateQuickReport('approved')">
+                            <a href="#" class="list-group-item list-group-item-action" onclick="setApprovedClaimsReport()">
                                 <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
-                                <strong>Payment Processing Report</strong>
+                                <strong>Approved Claims Report</strong>
                                 <small class="text-muted d-block">Approved claims ready for payment</small>
                             </a>
                         </div>
@@ -197,7 +214,6 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Set default date range to current month
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -206,13 +222,9 @@
             document.getElementById('EndDate').value = formatDate(lastDay);
 
             function formatDate(date) {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+                return date.toISOString().split('T')[0];
             }
 
-            // Form validation
             document.getElementById('reportForm').addEventListener('submit', function(e) {
                 const reportType = document.getElementById('ReportType').value;
                 if (!reportType) {
@@ -224,45 +236,31 @@
             });
         });
 
-        function generateQuickReport(type) {
-            const form = document.getElementById('reportForm');
+        function setMonthlyReport() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-            switch(type) {
-                case 'monthly':
-                    document.getElementById('ReportType').value = 'Monthly';
-                    // Dates are already set to current month by default
-                    document.getElementById('Department').value = '';
-                    document.getElementById('Status').value = '';
-                    break;
-                case 'department':
-                    document.getElementById('ReportType').value = 'Department';
-                    // Set date range to last 3 months
-                    const today = new Date();
-                    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-                    document.getElementById('StartDate').value = formatDate(threeMonthsAgo);
-                    document.getElementById('EndDate').value = formatDate(today);
-                    document.getElementById('Department').value = '';
-                    document.getElementById('Status').value = '';
-                    break;
-                case 'approved':
-                    document.getElementById('ReportType').value = 'All';
-                    // Set date range to current year
-                    const yearStart = new Date(today.getFullYear(), 0, 1);
-                    document.getElementById('StartDate').value = formatDate(yearStart);
-                    document.getElementById('EndDate').value = formatDate(today);
-                    document.getElementById('Department').value = '';
-                    document.getElementById('Status').value = 'Approved';
-                    break;
-            }
+            document.getElementById('ReportType').value = 'Monthly';
+            document.getElementById('StartDate').value = formatDate(firstDay);
+            document.getElementById('EndDate').value = formatDate(lastDay);
+        }
 
-            form.submit();
+        function setAllClaimsReport() {
+            document.getElementById('ReportType').value = 'All';
+            document.getElementById('StartDate').value = '';
+            document.getElementById('EndDate').value = '';
+            document.getElementById('Department').value = '';
+            document.getElementById('Status').value = '';
+        }
+
+        function setApprovedClaimsReport() {
+            document.getElementById('ReportType').value = 'All';
+            document.getElementById('Status').value = 'Approved';
         }
 
         function formatDate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+            return date.toISOString().split('T')[0];
         }
     </script>
 }

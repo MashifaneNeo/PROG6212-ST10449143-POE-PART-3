@@ -2,6 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using PROG6212_ST10449143_POE_PART_1.Models;
 using System.Linq.Dynamic.Core;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using System.Text;
 
 namespace PROG6212_ST10449143_POE_PART_1.Services
@@ -179,86 +182,207 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         {
             try
             {
-                var reportContent = new StringBuilder();
+                QuestPDF.Settings.License = LicenseType.Community;
 
-                reportContent.AppendLine($"CONTRACT CLAIM MANAGEMENT SYSTEM - {reportTitle.ToUpper()}");
-                reportContent.AppendLine("=".PadRight(60, '='));
-                reportContent.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm}");
-                reportContent.AppendLine($"Total Claims in Report: {claims.Count}");
-                reportContent.AppendLine($"Total Amount: R {claims.Sum(c => c.TotalAmount):#,##0.00}");
-                reportContent.AppendLine();
-
-                // Summary by status
-                var statusSummary = claims
-                    .GroupBy(c => c.Status)
-                    .Select(g => new { Status = g.Key, Count = g.Count(), Amount = g.Sum(c => c.TotalAmount) })
-                    .ToList();
-
-                reportContent.AppendLine("SUMMARY BY STATUS:");
-                reportContent.AppendLine("-".PadRight(40, '-'));
-                foreach (var summary in statusSummary)
+                var document = Document.Create(container =>
                 {
-                    reportContent.AppendLine($"{summary.Status}: {summary.Count} claims, R {summary.Amount:#,##0.00}");
-                }
-                reportContent.AppendLine();
-
-                // Summary by department
-                var deptSummary = claims
-                    .Where(c => c.User != null)
-                    .GroupBy(c => c.User.Department ?? "Unknown")
-                    .Select(g => new { Department = g.Key, Count = g.Count(), Amount = g.Sum(c => c.TotalAmount) })
-                    .OrderByDescending(g => g.Amount)
-                    .ToList();
-
-                if (deptSummary.Any())
-                {
-                    reportContent.AppendLine("SUMMARY BY DEPARTMENT:");
-                    reportContent.AppendLine("-".PadRight(40, '-'));
-                    foreach (var dept in deptSummary)
+                    container.Page(page =>
                     {
-                        reportContent.AppendLine($"{dept.Department}: {dept.Count} claims, R {dept.Amount:#,##0.00}");
-                    }
-                    reportContent.AppendLine();
-                }
+                        page.Size(PageSizes.A4);
+                        page.Margin(2, Unit.Centimetre);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(11));
 
-                // Detailed claim listing
-                reportContent.AppendLine("DETAILED CLAIM LISTING:");
-                reportContent.AppendLine("-".PadRight(80, '-'));
+                        page.Header()
+                            .AlignCenter()
+                            .Text(reportTitle)
+                            .SemiBold().FontSize(18).FontColor(Colors.Blue.Medium);
 
-                int counter = 1;
-                foreach (var claim in claims.OrderByDescending(c => c.SubmittedDate))
-                {
-                    reportContent.AppendLine($"{counter}. Claim #{claim.Id}");
-                    reportContent.AppendLine($"   Lecturer: {claim.LecturerName}");
-                    reportContent.AppendLine($"   Month: {claim.Month}");
-                    reportContent.AppendLine($"   Hours: {claim.HoursWorked:#0.00} @ R {claim.HourlyRate:#0.00}/hr");
-                    reportContent.AppendLine($"   Amount: R {claim.TotalAmount:#,##0.00}");
-                    reportContent.AppendLine($"   Status: {claim.Status}");
-                    reportContent.AppendLine($"   Submitted: {claim.SubmittedDate:yyyy-MM-dd}");
+                        page.Content()
+                            .PaddingVertical(1, Unit.Centimetre)
+                            .Column(column =>
+                            {
+                                column.Spacing(10);
 
-                    if (!string.IsNullOrEmpty(claim.AdditionalNotes))
-                    {
-                        reportContent.AppendLine($"   Notes: {claim.AdditionalNotes}");
-                    }
+                                // Report Summary Section
+                                column.Item().Background(Colors.Grey.Lighten3).Padding(10).Column(summaryColumn =>
+                                {
+                                    summaryColumn.Spacing(5);
+                                    summaryColumn.Item().Text("REPORT SUMMARY").SemiBold().FontSize(14);
 
-                    reportContent.AppendLine();
-                    counter++;
-                }
+                                    var totalAmount = claims.Sum(c => c.TotalAmount);
+                                    var approvedClaims = claims.Count(c => c.Status == "Approved");
+                                    var pendingClaims = claims.Count(c => c.Status == "Submitted" || c.Status == "Under Review");
+                                    var rejectedClaims = claims.Count(c => c.Status == "Rejected");
 
-                reportContent.AppendLine();
-                reportContent.AppendLine("END OF REPORT");
-                reportContent.AppendLine($"Total Records: {claims.Count}");
-                reportContent.AppendLine($"Report Generated By: HR System");
-                reportContent.AppendLine($"Generation Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                                    summaryColumn.Item().Row(row =>
+                                    {
+                                        row.RelativeItem().Text($"Total Claims: {claims.Count}");
+                                        row.RelativeItem().Text($"Approved: {approvedClaims}");
+                                        row.RelativeItem().Text($"Pending: {pendingClaims}");
+                                        row.RelativeItem().Text($"Rejected: {rejectedClaims}");
+                                    });
 
-                return Encoding.UTF8.GetBytes(reportContent.ToString());
+                                    summaryColumn.Item().Row(row =>
+                                    {
+                                        row.RelativeItem().Text($"Total Amount: R {totalAmount:#,##0.00}");
+                                        row.RelativeItem().Text($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm}");
+                                    });
+                                });
+
+                                // Status Summary
+                                var statusSummary = claims
+                                    .GroupBy(c => c.Status)
+                                    .Select(g => new { Status = g.Key, Count = g.Count(), Amount = g.Sum(c => c.TotalAmount) })
+                                    .ToList();
+
+                                if (statusSummary.Any())
+                                {
+                                    column.Item().Background(Colors.Grey.Lighten3).Padding(10).Column(statusColumn =>
+                                    {
+                                        statusColumn.Item().Text("SUMMARY BY STATUS").SemiBold().FontSize(14);
+
+                                        foreach (var summary in statusSummary)
+                                        {
+                                            statusColumn.Item().Row(row =>
+                                            {
+                                                row.RelativeItem(2).Text(summary.Status);
+                                                row.RelativeItem().Text($"{summary.Count} claims");
+                                                row.RelativeItem().Text($"R {summary.Amount:#,##0.00}");
+                                            });
+                                        }
+                                    });
+                                }
+
+                                // Department Summary
+                                var deptSummary = claims
+                                    .Where(c => c.User != null)
+                                    .GroupBy(c => c.User.Department ?? "Unknown")
+                                    .Select(g => new { Department = g.Key, Count = g.Count(), Amount = g.Sum(c => c.TotalAmount) })
+                                    .OrderByDescending(g => g.Amount)
+                                    .ToList();
+
+                                if (deptSummary.Any())
+                                {
+                                    column.Item().Background(Colors.Grey.Lighten3).Padding(10).Column(deptColumn =>
+                                    {
+                                        deptColumn.Item().Text("SUMMARY BY DEPARTMENT").SemiBold().FontSize(14);
+
+                                        foreach (var dept in deptSummary)
+                                        {
+                                            deptColumn.Item().Row(row =>
+                                            {
+                                                row.RelativeItem(2).Text(dept.Department);
+                                                row.RelativeItem().Text($"{dept.Count} claims");
+                                                row.RelativeItem().Text($"R {dept.Amount:#,##0.00}");
+                                            });
+                                        }
+                                    });
+                                }
+
+                                // Detailed Claims Table
+                                column.Item().Text("DETAILED CLAIMS LISTING").SemiBold().FontSize(14);
+
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.ConstantColumn(25); // No.
+                                        columns.RelativeColumn();   // Lecturer
+                                        columns.ConstantColumn(80); // Month
+                                        columns.ConstantColumn(60); // Hours
+                                        columns.ConstantColumn(80); // Amount
+                                        columns.ConstantColumn(80); // Status
+                                        columns.ConstantColumn(80); // Submitted
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("No.").FontColor(Colors.White);
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("Lecturer").FontColor(Colors.White);
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("Month").FontColor(Colors.White);
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("Hours").FontColor(Colors.White);
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("Amount").FontColor(Colors.White);
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("Status").FontColor(Colors.White);
+                                        header.Cell().Background(Colors.Blue.Medium).Padding(5).Text("Submitted").FontColor(Colors.White);
+                                    });
+
+                                    int counter = 1;
+                                    foreach (var claim in claims.OrderByDescending(c => c.SubmittedDate))
+                                    {
+                                        var backgroundColor = counter % 2 == 0 ? Colors.Grey.Lighten4 : Colors.White;
+
+                                        table.Cell().Background(backgroundColor).Padding(5).Text(counter.ToString());
+                                        table.Cell().Background(backgroundColor).Padding(5).Text(claim.LecturerName);
+                                        table.Cell().Background(backgroundColor).Padding(5).Text(claim.Month);
+                                        table.Cell().Background(backgroundColor).Padding(5).Text(claim.HoursWorked.ToString("0.00"));
+                                        table.Cell().Background(backgroundColor).Padding(5).Text($"R {claim.TotalAmount:#,##0.00}");
+
+                                        var statusColor = claim.Status switch
+                                        {
+                                            "Approved" => Colors.Green.Lighten1,
+                                            "Rejected" => Colors.Red.Lighten1,
+                                            "Under Review" => Colors.Orange.Lighten1,
+                                            _ => Colors.Grey.Lighten1
+                                        };
+
+                                        table.Cell().Background(statusColor).Padding(5).Text(claim.Status);
+                                        table.Cell().Background(backgroundColor).Padding(5).Text(claim.SubmittedDate.ToString("yyyy-MM-dd"));
+
+                                        counter++;
+                                    }
+                                });
+
+                                // Notes section for claims with additional notes
+                                var claimsWithNotes = claims.Where(c => !string.IsNullOrEmpty(c.AdditionalNotes)).ToList();
+                                if (claimsWithNotes.Any())
+                                {
+                                    column.Item().Text("CLAIMS WITH ADDITIONAL NOTES").SemiBold().FontSize(14);
+
+                                    foreach (var claim in claimsWithNotes)
+                                    {
+                                        column.Item().Background(Colors.Yellow.Lighten5).Padding(10).Column(noteColumn =>
+                                        {
+                                            noteColumn.Item().Row(row =>
+                                            {
+                                                row.RelativeItem().Text($"Claim #{claim.Id} - {claim.LecturerName}").SemiBold();
+                                                row.RelativeItem().Text(claim.SubmittedDate.ToString("yyyy-MM-dd"));
+                                            });
+                                            noteColumn.Item().Text(claim.AdditionalNotes);
+                                        });
+                                    }
+                                }
+                            });
+
+                        page.Footer()
+                            .AlignCenter()
+                            .Text(text =>
+                            {
+                                text.Span("Page ");
+                                text.CurrentPageNumber();
+                                text.Span(" of ");
+                                text.TotalPages();
+                                text.Span($" | Generated on {DateTime.Now:yyyy-MM-dd HH:mm} | Contract Claim Management System");
+                            });
+                    });
+                });
+
+                // Generate PDF as byte array
+                return document.GeneratePdf();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error generating PDF report: {ex.Message}");
-                // Return a basic error report
-                var errorContent = $"Error generating report: {ex.Message}\nPlease try again or contact system administrator.";
-                return Encoding.UTF8.GetBytes(errorContent);
+                Console.WriteLine($"Error generating PDF report with QuestPDF: {ex.Message}");
+
+                var fallbackContent = new StringBuilder();
+                fallbackContent.AppendLine($"ERROR GENERATING PDF REPORT");
+                fallbackContent.AppendLine($"Error: {ex.Message}");
+                fallbackContent.AppendLine($"Please contact system administrator.");
+                fallbackContent.AppendLine($"Report Title: {reportTitle}");
+                fallbackContent.AppendLine($"Claims Count: {claims.Count}");
+                fallbackContent.AppendLine($"Generation Time: {DateTime.Now:yyyy-MM-dd HH:mm}");
+
+                return Encoding.UTF8.GetBytes(fallbackContent.ToString());
             }
         }
 
