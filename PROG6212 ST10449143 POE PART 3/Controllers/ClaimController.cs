@@ -7,17 +7,24 @@ using PROG6212_ST10449143_POE_PART_1.Services;
 
 namespace PROG6212_ST10449143_POE_PART_1.Controllers
 {
-    [Authorize(Roles = "Lecturer,Coordinator,HR")]
+    [Authorize(Roles = "Lecturer,Coordinator,AcademicManager,HR")]
     public class ClaimsController : Controller
     {
         private readonly IClaimService _claimService;
+        private readonly IClaimAutomationService _automationService;
         private readonly IWebHostEnvironment _environment;
         private readonly AppDbContext _context;
         private readonly UserManager<User> _userManager;
 
-        public ClaimsController(IClaimService claimService, IWebHostEnvironment environment, AppDbContext context, UserManager<User> userManager)
+        public ClaimsController(
+            IClaimService claimService,
+            IClaimAutomationService automationService,
+            IWebHostEnvironment environment,
+            AppDbContext context,
+            UserManager<User> userManager)
         {
             _claimService = claimService;
+            _automationService = automationService;
             _environment = environment;
             _context = context;
             _userManager = userManager;
@@ -53,16 +60,17 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
             {
+                TempData["ErrorMessage"] = "User not found. Please log in again.";
                 return RedirectToAction("Login", "Account");
             }
 
-            // Validate hours worked (max 180 hours per month) - Fixed decimal comparison
+            // Validate hours worked 
             if (model.HoursWorked > 180m)
             {
                 ModelState.AddModelError("HoursWorked", "Hours worked cannot exceed 180 hours per month.");
             }
 
-            if (model.HoursWorked < 0.5m) // Fixed: using 0.5m for decimal
+            if (model.HoursWorked < 0.5m)
             {
                 ModelState.AddModelError("HoursWorked", "Hours worked must be at least 0.5 hours.");
             }
@@ -132,21 +140,71 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                         UserId = currentUser.Id,
                         Month = model.Month,
                         HoursWorked = model.HoursWorked,
-                        HourlyRate = currentUser.HourlyRate, // Use the rate from user profile
+                        HourlyRate = currentUser.HourlyRate,
                         AdditionalNotes = model.AdditionalNotes ?? string.Empty,
-                        SupportingDocument = fileName,
+                        SupportingDocument = fileName ?? string.Empty,
                         Status = "Submitted",
                         SubmittedDate = DateTime.Now
                     };
 
+                    Console.WriteLine($"Attempting to save claim for user: {currentUser.Id}");
+
                     await _claimService.AddClaimAsync(claim);
-                    TempData["SuccessMessage"] = "Claim submitted successfully!";
+
+                    Console.WriteLine($"Claim saved successfully with ID: {claim.Id}");
+
+                    // Run automated verification on new claim
+                    try
+                    {
+                        if (_automationService != null)
+                        {
+                            var verificationResult = await _automationService.AutomaticallyVerifyClaimAsync(claim);
+                            if (verificationResult.CanAutoApprove && verificationResult.IsValid)
+                            {
+                                await _claimService.UpdateClaimStatusAsync(claim.Id, "Approved", verificationResult.AutoApprovalReason);
+                                TempData["SuccessMessage"] = "Claim submitted and automatically approved!";
+                            }
+                            else
+                            {
+                                TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting review.";
+                            }
+                        }
+                        else
+                        {
+                            TempData["SuccessMessage"] = "Claim submitted successfully!";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Automated verification error: {ex.Message}");
+                        TempData["SuccessMessage"] = "Claim submitted successfully!";
+                    }
+
                     return RedirectToAction("Submit");
                 }
                 catch (Exception ex)
                 {
+                    
                     Console.WriteLine($"Error saving claim: {ex.Message}");
-                    ModelState.AddModelError("", "An error occurred while saving your claim. Please try again.");
+                    Console.WriteLine($"Inner exception: {ex.InnerException?.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                    // Provide more specific error messages
+                    string errorMessage = ex.InnerException?.Message ?? ex.Message;
+
+                    if (errorMessage.Contains("FK") || errorMessage.Contains("user"))
+                    {
+                        ModelState.AddModelError("", "User authentication error. Please log out and log in again.");
+                    }
+                    else if (errorMessage.Contains("required") || errorMessage.Contains("null"))
+                    {
+                        ModelState.AddModelError("", "Missing required information. Please check your input and try again.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError("", $"An error occurred while saving your claim: {errorMessage}");
+                    }
+
                     model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
                     model.HourlyRate = currentUser.HourlyRate;
                     return View(model);
@@ -159,7 +217,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = "Lecturer,Coordinator,HR")]
+        [Authorize(Roles = "Lecturer,Coordinator,AcademicManager,HR")]
         public async Task<IActionResult> ViewClaims()
         {
             try
@@ -175,7 +233,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 }
                 else
                 {
-                    // Coordinators and HR see all claims
+                    // Coordinators, Academic Managers and HR see all claims
                     claims = await _claimService.GetAllClaimsAsync();
                 }
 
@@ -189,11 +247,15 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             }
         }
 
-        [Authorize(Roles = "Coordinator,HR")]
+        [Authorize(Roles = "Coordinator,AcademicManager,HR")]
         public async Task<IActionResult> Approvals()
         {
             try
             {
+                // Security check using sessions
+                HttpContext.Session.SetString("LastAccess_Approvals", DateTime.Now.ToString());
+                HttpContext.Session.SetString("CurrentUser_Approvals", User.Identity.Name);
+
                 // Automatically move submitted claims to Under Review when viewing approvals
                 var submittedClaims = await _context.Claims
                     .Where(c => c.Status == "Submitted")
@@ -218,6 +280,79 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 TempData["ErrorMessage"] = "Error loading claims for approval. Please try again.";
                 return View(new List<Claim>());
             }
+        }
+
+        [Authorize(Roles = "Coordinator,AcademicManager")]
+        public async Task<IActionResult> CoordinatorDashboard()
+        {
+            // Security check using sessions
+            var currentUser = await _userManager.GetUserAsync(User);
+            HttpContext.Session.SetString("LastAccess_Coordinator", DateTime.Now.ToString());
+            HttpContext.Session.SetString("CurrentUserRole", "Coordinator");
+
+            if (!User.IsInRole("Coordinator") && !User.IsInRole("AcademicManager"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Coordinator or Academic Manager role required.";
+                return RedirectToAction("AccessDenied", "Account");
+            }
+
+            var claims = await _automationService.GetClaimsForAutomatedReviewAsync();
+            var dashboardModel = new CoordinatorDashboardViewModel
+            {
+                PendingClaims = claims,
+                AutomationStats = new AutomationStatistics
+                {
+                    TotalProcessed = HttpContext.Session.GetInt32("Automation_ProcessedCount") ?? 0,
+                    AutoApproved = HttpContext.Session.GetInt32("Automation_ApprovedCount") ?? 0,
+                    AutoRejected = HttpContext.Session.GetInt32("Automation_RejectedCount") ?? 0,
+                    LastRun = HttpContext.Session.GetString("LastAutomationCompletion")
+                }
+            };
+
+            return View(dashboardModel);
+        }
+
+        [Authorize(Roles = "AcademicManager")]
+        public async Task<IActionResult> AcademicManagerDashboard()
+        {
+            // Security check using sessions
+            var currentUser = await _userManager.GetUserAsync(User);
+            HttpContext.Session.SetString("LastAccess_AcademicManager", DateTime.Now.ToString());
+            HttpContext.Session.SetString("CurrentUserRole", "AcademicManager");
+
+            if (!User.IsInRole("AcademicManager"))
+            {
+                TempData["ErrorMessage"] = "Access denied. Academic Manager role required.";
+                return RedirectToAction("AccessDenied", "Account");
+            }
+
+            var claims = await _context.Claims
+                .Include(c => c.User)
+                .Where(c => c.Status == "Under Review" || c.Status == "Submitted")
+                .OrderByDescending(c => c.HoursWorked)
+                .ThenByDescending(c => c.TotalAmount)
+                .ToListAsync();
+
+            var highValueClaims = claims.Where(c => c.TotalAmount > 10000).ToList();
+            var departmentSummary = claims.GroupBy(c => c.User.Department)
+                .Select(g => new DepartmentSummary
+                {
+                    Department = g.Key ?? "Unknown",
+                    TotalClaims = g.Count(),
+                    TotalAmount = g.Sum(c => c.TotalAmount),
+                    AverageHours = g.Average(c => c.HoursWorked)
+                }).ToList();
+
+            var managerModel = new AcademicManagerDashboardViewModel
+            {
+                AllPendingClaims = claims,
+                HighValueClaims = highValueClaims,
+                DepartmentSummaries = departmentSummary,
+                TotalPendingAmount = claims.Sum(c => c.TotalAmount),
+                AutomationEfficiency = CalculateAutomationEfficiency()
+            };
+
+            return View(managerModel);
         }
 
         [HttpPost]
@@ -290,6 +425,102 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Coordinator,AcademicManager")]
+        public async Task<IActionResult> RunAutomatedVerification(int claimId)
+        {
+            var claim = await _claimService.GetClaimByIdAsync(claimId);
+            if (claim == null)
+            {
+                return Json(new { success = false, error = "Claim not found" });
+            }
+
+            var result = await _automationService.AutomaticallyVerifyClaimAsync(claim);
+
+            // Store verification result in session
+            HttpContext.Session.SetString($"VerificationResult_{claimId}",
+                System.Text.Json.JsonSerializer.Serialize(result));
+
+            return Json(new
+            {
+                success = true,
+                isValid = result.IsValid,
+                canAutoApprove = result.CanAutoApprove,
+                recommendedAction = result.RecommendedAction,
+                errors = result.Errors,
+                warnings = result.Warnings,
+                info = result.Info
+            });
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Coordinator,AcademicManager")]
+        public async Task<IActionResult> BulkAutomatedProcessing()
+        {
+            try
+            {
+                HttpContext.Session.SetString("BulkProcessing_Started", DateTime.Now.ToString());
+                await _automationService.ProcessAutomatedApprovalsAsync();
+
+                var processed = HttpContext.Session.GetInt32("Automation_ProcessedCount") ?? 0;
+                var approved = HttpContext.Session.GetInt32("Automation_ApprovedCount") ?? 0;
+                var rejected = HttpContext.Session.GetInt32("Automation_RejectedCount") ?? 0;
+
+                HttpContext.Session.SetString("BulkProcessing_Completed", DateTime.Now.ToString());
+
+                TempData["SuccessMessage"] =
+                    $"Bulk processing completed: {processed} claims processed, {approved} approved, {rejected} rejected.";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Bulk processing failed: {ex.Message}";
+            }
+
+            return RedirectToAction("CoordinatorDashboard");
+        }
+
+        [HttpGet]
+        [Authorize(Roles = "Coordinator,AcademicManager")]
+        public async Task<IActionResult> GetClaimVerificationStatus(int claimId)
+        {
+            var status = await _automationService.GetClaimWorkflowStatusAsync(claimId);
+            return Json(new
+            {
+                claimId = status.ClaimId,
+                currentStatus = status.CurrentStatus,
+                lastVerified = status.LastVerified,
+                verificationAttempts = status.VerificationAttempts,
+                eligibleForAutoApproval = status.IsEligibleForAutoApproval,
+                lastResult = status.LastVerificationResult
+            });
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "AcademicManager")]
+        public async Task<IActionResult> OverrideApproval(int claimId, string reason)
+        {
+            // Security check - only AcademicManager can override
+            if (!User.IsInRole("AcademicManager"))
+            {
+                return Json(new { success = false, error = "Access denied" });
+            }
+
+            var claim = await _claimService.GetClaimByIdAsync(claimId);
+            if (claim == null)
+            {
+                return Json(new { success = false, error = "Claim not found" });
+            }
+
+            // Store override in session for audit
+            HttpContext.Session.SetString($"Override_{claimId}",
+                $"{DateTime.Now}: {User.Identity.Name} - {reason}");
+
+            await _claimService.UpdateClaimStatusAsync(claimId, "Approved",
+                $"Manually approved by Academic Manager: {reason}");
+
+            return Json(new { success = true, message = "Claim approved manually" });
+        }
+
+        [HttpPost]
         [Authorize(Roles = "Lecturer,HR")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -350,7 +581,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             }
         }
 
-        [Authorize(Roles = "Lecturer,Coordinator,HR")]
+        [Authorize(Roles = "Lecturer,Coordinator,AcademicManager,HR")]
         public async Task<IActionResult> Details(int id)
         {
             try
@@ -458,5 +689,59 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 return Json(new { success = false, error = ex.Message });
             }
         }
+
+        private AutomationEfficiency CalculateAutomationEfficiency()
+        {
+            var processed = HttpContext.Session.GetInt32("Automation_ProcessedCount") ?? 1;
+            var approved = HttpContext.Session.GetInt32("Automation_ApprovedCount") ?? 0;
+            var rejected = HttpContext.Session.GetInt32("Automation_RejectedCount") ?? 0;
+
+            return new AutomationEfficiency
+            {
+                TotalProcessed = processed,
+                AutoApprovalRate = (decimal)approved / processed * 100,
+                AutoRejectionRate = (decimal)rejected / processed * 100,
+                ManualReviewRate = (decimal)(processed - approved - rejected) / processed * 100
+            };
+        }
+    }
+
+    public class CoordinatorDashboardViewModel
+    {
+        public List<Claim> PendingClaims { get; set; }
+        public AutomationStatistics AutomationStats { get; set; }
+    }
+
+    public class AcademicManagerDashboardViewModel
+    {
+        public List<Claim> AllPendingClaims { get; set; }
+        public List<Claim> HighValueClaims { get; set; }
+        public List<DepartmentSummary> DepartmentSummaries { get; set; }
+        public decimal TotalPendingAmount { get; set; }
+        public AutomationEfficiency AutomationEfficiency { get; set; }
+    }
+
+    public class AutomationStatistics
+    {
+        public int TotalProcessed { get; set; }
+        public int AutoApproved { get; set; }
+        public int AutoRejected { get; set; }
+        public string LastRun { get; set; }
+    }
+
+    public class DepartmentSummary
+    {
+        public string Department { get; set; }
+        public int TotalClaims { get; set; }
+        public decimal TotalAmount { get; set; }
+        public decimal AverageHours { get; set; }
+    }
+
+    public class AutomationEfficiency
+    {
+        public int TotalProcessed { get; set; }
+        public decimal AutoApprovalRate { get; set; }
+        public decimal AutoRejectionRate { get; set; }
+        public decimal ManualReviewRate { get; set; }
     }
 }

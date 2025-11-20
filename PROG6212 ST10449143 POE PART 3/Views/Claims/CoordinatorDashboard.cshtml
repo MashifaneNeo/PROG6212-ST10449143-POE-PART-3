@@ -1,0 +1,271 @@
+﻿@model PROG6212_ST10449143_POE_PART_1.Controllers.CoordinatorDashboardViewModel
+@{
+    ViewData["Title"] = "Coordinator Dashboard - Automated Claim Verification";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-6 text-primary">
+            <i class="fas fa-robot me-2"></i>Coordinator Dashboard - Automated Verification
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-success" onclick="runBulkProcessing()">
+                <i class="fas fa-play-circle me-1"></i>Run Bulk Automation
+            </button>
+            <a href="@Url.Action("Approvals")" class="btn btn-outline-primary">
+                <i class="fas fa-check-circle me-1"></i>Manual Approvals
+            </a>
+        </div>
+    </div>
+
+    <!-- Automation Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Processed
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.AutomationStats.TotalProcessed</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cogs fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Auto-Approved
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.AutomationStats.AutoApproved</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Auto-Rejected
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.AutomationStats.AutoRejected</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Last Run
+                            </div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                @(Model.AutomationStats.LastRun ?? "Never")
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Claims for Automated Review -->
+    <div class="card shadow border-0">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-search me-2"></i>Claims Pending Automated Verification (@Model.PendingClaims.Count)
+            </h5>
+        </div>
+        <div class="card-body">
+            @if (!Model.PendingClaims.Any())
+            {
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>No claims pending automated verification.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped" id="automationTable">
+                        <thead class="table-warning">
+                            <tr>
+                                <th>Claim ID</th>
+                                <th>Lecturer</th>
+                                <th>Month</th>
+                                <th>Hours</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Auto-Verify</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in Model.PendingClaims)
+                            {
+                                <tr data-claim-id="@claim.Id">
+                                    <td>@claim.Id</td>
+                                    <td>@claim.User?.FirstName @claim.User?.LastName</td>
+                                    <td>@claim.Month</td>
+                                    <td>@claim.HoursWorked.ToString("0.00")</td>
+                                    <td>R @claim.TotalAmount.ToString("0.00")</td>
+                                    <td>
+                                        <span class="badge bg-warning">@claim.Status</span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary verify-btn"
+                                                onclick="verifyClaim(@claim.Id)">
+                                            <i class="fas fa-robot"></i> Verify
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="@Url.Action("Details", new { id = claim.Id })"
+                                               class="btn btn-outline-info" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button class="btn btn-outline-success"
+                                                    onclick="getVerificationStatus(@claim.Id)">
+                                                <i class="fas fa-chart-line"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Verification Results Modal -->
+<div class="modal fade" id="verificationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Automated Verification Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="verificationResults">
+                <!-- Results will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function verifyClaim(claimId) {
+            $.post('@Url.Action("RunAutomatedVerification")', { claimId: claimId })
+                .done(function (data) {
+                    showVerificationResults(claimId, data);
+                })
+                .fail(function (xhr) {
+                    alert('Error verifying claim: ' + xhr.responseText);
+                });
+        }
+
+        function showVerificationResults(claimId, data) {
+            const resultsDiv = $('#verificationResults');
+            let html = `<h6>Claim #${claimId} - Verification Results</h6>`;
+
+            if (data.success) {
+                html += `
+                    <div class="alert ${data.isValid ? 'alert-success' : 'alert-warning'}">
+                        <strong>Status:</strong> ${data.isValid ? 'Valid' : 'Requires Review'}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Recommended Action:</strong>
+                        <span class="badge ${getActionBadgeClass(data.recommendedAction)}">
+                            ${data.recommendedAction}
+                        </span>
+                    </div>
+                    ${data.canAutoApprove ? '<div class="alert alert-info"><strong>Eligible for Auto-Approval</strong></div>' : ''}
+                `;
+
+                if (data.errors && data.errors.length > 0) {
+                    html += `<div class="alert alert-danger"><strong>Errors:</strong><ul>`;
+                    data.errors.forEach(error => html += `<li>${error}</li>`);
+                    html += `</ul></div>`;
+                }
+
+                if (data.warnings && data.warnings.length > 0) {
+                    html += `<div class="alert alert-warning"><strong>Warnings:</strong><ul>`;
+                    data.warnings.forEach(warning => html += `<li>${warning}</li>`);
+                    html += `</ul></div>`;
+                }
+
+                if (data.info && data.info.length > 0) {
+                    html += `<div class="alert alert-info"><strong>Information:</strong><ul>`;
+                    data.info.forEach(info => html += `<li>${info}</li>`);
+                    html += `</ul></div>`;
+                }
+            } else {
+                html += `<div class="alert alert-danger">${data.error}</div>`;
+            }
+
+            resultsDiv.html(html);
+            new bootstrap.Modal(document.getElementById('verificationModal')).show();
+        }
+
+        function getActionBadgeClass(action) {
+            switch (action) {
+                case 'Approve': return 'bg-success';
+                case 'Reject': return 'bg-danger';
+                case 'Review': return 'bg-warning';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function getVerificationStatus(claimId) {
+            $.get('@Url.Action("GetClaimVerificationStatus")', { claimId: claimId })
+                .done(function (data) {
+                    alert(`Claim #${data.claimId}\nStatus: ${data.currentStatus}\nVerification Attempts: ${data.verificationAttempts}\nLast Verified: ${data.lastVerified || 'Never'}`);
+                });
+        }
+
+        function runBulkProcessing() {
+            if (confirm('Run bulk automated processing on all pending claims?')) {
+                window.location.href = '@Url.Action("BulkAutomatedProcessing")';
+            }
+        }
+
+        // Initialize DataTable
+        document.addEventListener('DOMContentLoaded', function() {
+            if ($.fn.DataTable) {
+                $('#automationTable').DataTable({
+                    pageLength: 25,
+                    order: [[0, 'desc']]
+                });
+            }
+        });
+    </script>
+}

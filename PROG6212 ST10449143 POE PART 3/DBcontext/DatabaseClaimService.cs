@@ -12,21 +12,52 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             _context = context;
         }
 
-        
         public async Task AddClaimAsync(Claim claim)
         {
             try
             {
+                // Ensure required fields are set
+                if (string.IsNullOrEmpty(claim.UserId))
+                {
+                    throw new ArgumentException("UserId is required for claim");
+                }
+
+                if (string.IsNullOrEmpty(claim.Month))
+                {
+                    throw new ArgumentException("Month is required for claim");
+                }
+
+                claim.Status ??= "Submitted";
                 claim.SubmittedDate = DateTime.Now;
-                claim.Status = "Submitted";
+                claim.AdditionalNotes ??= string.Empty;
+                claim.SupportingDocument ??= string.Empty;
+                claim.RejectionReason ??= string.Empty;
+
+                Console.WriteLine($"Adding claim: UserId={claim.UserId}, Month={claim.Month}, Hours={claim.HoursWorked}, Rate={claim.HourlyRate}");
 
                 _context.Claims.Add(claim);
                 await _context.SaveChangesAsync();
+
+                Console.WriteLine($"Claim added successfully with ID: {claim.Id}");
+            }
+            catch (DbUpdateException dbEx)
+            {
+                Console.WriteLine($"Database error adding claim: {dbEx.Message}");
+                Console.WriteLine($"Inner exception: {dbEx.InnerException?.Message}");
+
+                // Check for specific constraint violations
+                if (dbEx.InnerException != null && dbEx.InnerException.Message.Contains("FK"))
+                {
+                    throw new Exception("Invalid user reference. Please ensure you are logged in correctly.");
+                }
+
+                throw new Exception("Database error occurred while saving claim. Please try again.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error adding claim to database: {ex.Message}");
-                throw;
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw new Exception("An unexpected error occurred while saving your claim. Please try again.");
             }
         }
 
@@ -35,6 +66,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             try
             {
                 return await _context.Claims
+                    .Include(c => c.User) 
                     .OrderByDescending(c => c.SubmittedDate)
                     .ToListAsync();
             }
@@ -49,7 +81,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         {
             try
             {
-                return await _context.Claims.FirstOrDefaultAsync(c => c.Id == id);
+                return await _context.Claims
+                    .Include(c => c.User) 
+                    .FirstOrDefaultAsync(c => c.Id == id);
             }
             catch (Exception ex)
             {
@@ -95,6 +129,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             try
             {
                 return await _context.Claims
+                    .Include(c => c.User)
                     .Where(c => c.Status == "Under Review")
                     .OrderByDescending(c => c.SubmittedDate)
                     .ToListAsync();

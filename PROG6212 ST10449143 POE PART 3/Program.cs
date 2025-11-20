@@ -80,7 +80,7 @@ using (var scope = app.Services.CreateScope())
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<User>>();
 
-        // Create roles - UPDATED WITH NEW ROLES
+        // Create roles 
         string[] roleNames = { "HR", "Lecturer", "Coordinator", "AcademicManager" };
         foreach (var roleName in roleNames)
         {

@@ -107,13 +107,38 @@
             padding-top: 20px;
         }
 
-            .hr-section h6 {
-                color: #1ABC9C;
+        .coordinator-section {
+            border-top: 2px solid #F39C12;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+
+        .manager-section {
+            border-top: 2px solid #9B59B6;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+
+            .hr-section h6,
+            .coordinator-section h6,
+            .manager-section h6 {
                 font-size: 0.9rem;
                 margin-bottom: 15px;
                 text-transform: uppercase;
                 letter-spacing: 1px;
             }
+
+        .hr-section h6 {
+            color: #1ABC9C;
+        }
+
+        .coordinator-section h6 {
+            color: #F39C12;
+        }
+
+        .manager-section h6 {
+            color: #9B59B6;
+        }
     </style>
 </head>
 <body>
@@ -136,14 +161,28 @@
                 <i class="fas fa-tasks"></i>Track Status
             </a>
 
+            <!-- Coordinator & Academic Manager Automation Features -->
+            @if (User.IsInRole("Coordinator") || User.IsInRole("AcademicManager"))
+            {
+                <div class="coordinator-section">
+                    <h6>Automation Tools</h6>
+                    <a asp-controller="Claims" asp-action="CoordinatorDashboard">
+                        <i class="fas fa-robot"></i>Automation Dashboard
+                    </a>
+                    <a asp-controller="Claims" asp-action="AcademicManagerDashboard">
+                        <i class="fas fa-user-tie"></i>Manager Oversight
+                    </a>
+                    <a asp-controller="Claims" asp-action="Approvals">
+                        <i class="fas fa-check-circle"></i>Manual Approvals
+                    </a>
+                </div>
+            }
+
             <!-- Coordinator & HR Features -->
             @if (User.IsInRole("Coordinator") || User.IsInRole("HR"))
             {
                 <a asp-controller="Claims" asp-action="ViewClaims">
                     <i class="fas fa-list-alt"></i>View Claims
-                </a>
-                <a asp-controller="Claims" asp-action="Approvals">
-                    <i class="fas fa-check-circle"></i>Approvals
                 </a>
             }
 
@@ -166,6 +205,20 @@
                     </a>
                     <a asp-controller="HR" asp-action="AutomatedProcessing">
                         <i class="fas fa-robot"></i>Auto-Process
+                    </a>
+                </div>
+            }
+
+            <!-- Academic Manager Only Features -->
+            @if (User.IsInRole("AcademicManager"))
+            {
+                <div class="manager-section">
+                    <h6>Executive Oversight</h6>
+                    <a asp-controller="Claims" asp-action="AcademicManagerDashboard">
+                        <i class="fas fa-chart-line"></i>Performance Analytics
+                    </a>
+                    <a asp-controller="HR" asp-action="Reports">
+                        <i class="fas fa-file-pdf"></i>Advanced Reports
                     </a>
                 </div>
             }
@@ -200,7 +253,8 @@
                                         @{
                                             var roles = "";
                                             if (User.IsInRole("HR")) roles = "HR Manager";
-                                            else if (User.IsInRole("Coordinator")) roles = "Coordinator";
+                                            else if (User.IsInRole("Coordinator")) roles = "Programme Coordinator";
+                                            else if (User.IsInRole("AcademicManager")) roles = "Academic Manager";
                                             else if (User.IsInRole("Lecturer")) roles = "Lecturer";
                                         }
                                         @roles

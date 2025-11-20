@@ -81,7 +81,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     result.AutoApprovalReason = "Claim meets all criteria for automatic approval";
                 }
 
-                // If no errors and can't auto-approve, recommend review
                 if (!result.Errors.Any() && !result.CanAutoApprove)
                 {
                     result.RecommendedAction = "Review";
