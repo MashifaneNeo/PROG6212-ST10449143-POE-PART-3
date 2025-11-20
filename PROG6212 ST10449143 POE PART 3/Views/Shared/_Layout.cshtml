@@ -16,7 +16,7 @@
         }
 
         .sidebar {
-            width: 280px; /* Slightly wider for better readability */
+            width: 280px;
             background: linear-gradient(180deg, #2C3E50 0%, #1a252f 100%);
             height: 100vh;
             padding: 20px 15px;
@@ -25,23 +25,22 @@
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            overflow-y: auto; /* Enable vertical scrolling */
+            overflow-y: auto;
         }
 
         .sidebar-header {
-            flex-shrink: 0; /* Prevent header from shrinking */
+            flex-shrink: 0;
             padding-bottom: 20px;
             border-bottom: 2px solid #34495E;
             margin-bottom: 20px;
         }
 
         .sidebar-content {
-            flex: 1; /* Take remaining space */
-            overflow-y: auto; /* Enable scrolling for content */
-            padding-right: 10px; /* Space for scrollbar */
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
         }
 
-            /* Custom scrollbar for sidebar */
             .sidebar-content::-webkit-scrollbar {
                 width: 6px;
             }
@@ -101,9 +100,9 @@
             flex: 1;
             padding: 30px;
             background: #f8f9fa;
-            margin-left: 280px; /* Match sidebar width */
+            margin-left: 280px;
             min-height: 100vh;
-            overflow-y: auto; /* Enable scrolling for main content */
+            overflow-y: auto;
         }
 
         .navbar {
@@ -187,7 +186,6 @@
             background: rgba(155, 89, 182, 0.1);
         }
 
-        /* Role-specific icon colors */
         .hr-section a i {
             color: #1ABC9C;
         }
@@ -200,14 +198,12 @@
             color: #9B59B6;
         }
 
-        /* Active link styling */
         .sidebar a.active {
             background: #1ABC9C;
             border-color: #16A085;
             box-shadow: 0 2px 8px rgba(26, 188, 156, 0.3);
         }
 
-        /* Responsive design */
         @@media (max-width: 768px) {
             .sidebar {
                 width: 250px;
@@ -237,10 +233,32 @@
                 padding: 10px;
             }
         }
+
+        /* Workflow status badges */
+        .badge-coordinator {
+            background: #F39C12;
+            color: white;
+        }
+
+        .badge-manager {
+            background: #9B59B6;
+            color: white;
+        }
+
+        .badge-completed {
+            background: #27AE60;
+            color: white;
+        }
+
+        .workflow-step {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
-    <!-- Mobile Menu Button (hidden on desktop) -->
     <button class="mobile-menu-btn d-lg-none" onclick="toggleSidebar()">
         <i class="fas fa-bars"></i>
     </button>
@@ -270,19 +288,33 @@
                     <i class="fas fa-list-alt"></i>View Claims
                 </a>
 
-                <!-- Coordinator & Academic Manager Automation Features -->
-                @if (User.IsInRole("Coordinator") || User.IsInRole("AcademicManager"))
+                <!-- Coordinator Workflow Features -->
+                @if (User.IsInRole("Coordinator"))
                 {
                     <div class="coordinator-section">
-                        <h6>Automation Tools</h6>
+                        <h6>Coordinator Workflow</h6>
+                        <a asp-controller="Claims" asp-action="CoordinatorApprovals" class="nav-link">
+                            <i class="fas fa-clipboard-check"></i>Review Claims
+                        </a>
                         <a asp-controller="Claims" asp-action="CoordinatorDashboard" class="nav-link">
                             <i class="fas fa-robot"></i>Automation Dashboard
                         </a>
-                        <a asp-controller="Claims" asp-action="AcademicManagerDashboard" class="nav-link">
-                            <i class="fas fa-user-tie"></i>Manager Oversight
+                        <a asp-controller="Claims" asp-action="BulkAutomatedProcessing" class="nav-link">
+                            <i class="fas fa-play-circle"></i>Run Bulk Processing
                         </a>
-                        <a asp-controller="Claims" asp-action="Approvals" class="nav-link">
-                            <i class="fas fa-check-circle"></i>Manual Approvals
+                    </div>
+                }
+
+                <!-- Manager Workflow Features -->
+                @if (User.IsInRole("AcademicManager"))
+                {
+                    <div class="manager-section">
+                        <h6>Manager Workflow</h6>
+                        <a asp-controller="Claims" asp-action="ManagerApprovals" class="nav-link">
+                            <i class="fas fa-user-tie"></i>Final Approvals
+                        </a>
+                        <a asp-controller="Claims" asp-action="AcademicManagerDashboard" class="nav-link">
+                            <i class="fas fa-chart-line"></i>Performance Analytics
                         </a>
                     </div>
                 }
@@ -306,43 +338,12 @@
                         </a>
                     </div>
                 }
-
-                <!-- Academic Manager Only Features -->
-                @if (User.IsInRole("AcademicManager"))
-                {
-                    <div class="manager-section">
-                        <h6>Executive Oversight</h6>
-                        <a asp-controller="Claims" asp-action="AcademicManagerDashboard" class="nav-link">
-                            <i class="fas fa-chart-line"></i>Performance Analytics
-                        </a>
-                        <a asp-controller="HR" asp-action="Reports" class="nav-link">
-                            <i class="fas fa-file-pdf"></i>Advanced Reports
-                        </a>
-                        <a asp-controller="Claims" asp-action="ViewClaims" class="nav-link">
-                            <i class="fas fa-search"></i>Audit Claims
-                        </a>
-                    </div>
-                }
-
-                <!-- Coordinator Only Features -->
-                @if (User.IsInRole("Coordinator"))
-                {
-                    <div class="coordinator-section">
-                        <h6>Coordinator Tools</h6>
-                        <a asp-controller="Claims" asp-action="Approvals" class="nav-link">
-                            <i class="fas fa-clipboard-check"></i>Review Claims
-                        </a>
-                        <a asp-controller="Claims" asp-action="CoordinatorDashboard" class="nav-link">
-                            <i class="fas fa-cogs"></i>Automation Settings
-                        </a>
-                    </div>
-                }
             }
             else
             {
                 <a asp-controller="Account" asp-action="Login" class="nav-link">
                     <i class="fas fa-sign-in-alt"></i>Login
-                </a>                
+                </a>
             }
         </div>
     </div>
@@ -417,7 +418,6 @@
             sidebar.classList.toggle('mobile-open');
         }
 
-        // Close sidebar when clicking outside on mobile
         document.addEventListener('click', function(event) {
             const sidebar = document.getElementById('sidebar');
             const mobileBtn = document.querySelector('.mobile-menu-btn');
@@ -429,7 +429,6 @@
             }
         });
 
-        // Add active class to current page link
         document.addEventListener('DOMContentLoaded', function() {
             const currentUrl = window.location.pathname;
             const navLinks = document.querySelectorAll('.sidebar a.nav-link');
@@ -448,6 +447,27 @@
                 sidebar.classList.remove('mobile-open');
             }
         });
+
+        // Session timeout warning
+        let sessionWarningShown = false;
+        function checkSessionTimeout() {
+            setTimeout(() => {
+                if (!sessionWarningShown) {
+                    if (confirm('Your session will expire in 5 minutes. Would you like to extend it?')) {
+                        // Refresh the page to extend session
+                        window.location.reload();
+                    } else {
+                        sessionWarningShown = true;
+                    }
+                }
+            }, 25 * 60 * 1000); 
+        }
+
+        // Start session timeout check if user is authenticated
+        @if (User.Identity.IsAuthenticated)
+        {
+                <text>checkSessionTimeout();</text>
+        }
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)

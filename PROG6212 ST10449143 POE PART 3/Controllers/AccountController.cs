@@ -43,11 +43,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 {
                     Console.WriteLine($"Login successful for: {model.Email}");
 
-                    if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                    {
-                        return Redirect(returnUrl);
-                    }
-
                     var user = await _userManager.FindByEmailAsync(model.Email);
                     Console.WriteLine($"User found: {user != null}");
 
@@ -56,21 +51,24 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                         var roles = await _userManager.GetRolesAsync(user);
                         Console.WriteLine($"User roles: {string.Join(", ", roles)}");
 
-                        if (await _userManager.IsInRoleAsync(user, "HR"))
+                        // INITIALIZE SESSION BASED ON ROLE
+                        if (await _userManager.IsInRoleAsync(user, "Coordinator"))
+                        {
+                            HttpContext.Session.SetString($"CoordinatorAccess_{user.UserName}", DateTime.Now.ToString());
+                            return RedirectToAction("CoordinatorApprovals", "Claims");
+                        }
+                        else if (await _userManager.IsInRoleAsync(user, "AcademicManager"))
+                        {
+                            HttpContext.Session.SetString($"ManagerAccess_{user.UserName}", DateTime.Now.ToString());
+                            return RedirectToAction("ManagerApprovals", "Claims");
+                        }
+                        else if (await _userManager.IsInRoleAsync(user, "HR"))
                         {
                             return RedirectToAction("Dashboard", "HR");
                         }
                         else if (await _userManager.IsInRoleAsync(user, "Lecturer"))
                         {
                             return RedirectToAction("Submit", "Claims");
-                        }
-                        else if (await _userManager.IsInRoleAsync(user, "Coordinator"))
-                        {
-                            return RedirectToAction("Approvals", "Claims");
-                        }
-                        else if (await _userManager.IsInRoleAsync(user, "AcademicManager"))
-                        {
-                            return RedirectToAction("AcademicManagerDashboard", "Claims");
                         }
                     }
 

@@ -9,6 +9,8 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         Task<List<Claim>> GetClaimsForAutomatedReviewAsync();
         Task ProcessAutomatedApprovalsAsync();
         Task<WorkflowStatus> GetClaimWorkflowStatusAsync(int claimId);
+        Task<List<Claim>> GetClaimsForCoordinatorReviewAsync();
+        Task<List<Claim>> GetClaimsForManagerReviewAsync();
     }
 
     public class ClaimAutomationService : IClaimAutomationService
@@ -31,20 +33,21 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             {
                 // Store verification session data
                 session.SetString($"Claim_{claim.Id}_VerificationStart", DateTime.Now.ToString());
-                session.SetInt32($"Claim_{claim.Id}_VerificationAttempts",
-                    session.GetInt32($"Claim_{claim.Id}_VerificationAttempts") ?? 0 + 1);
+                var currentAttempts = session.GetInt32($"Claim_{claim.Id}_VerificationAttempts") ?? 0;
+                session.SetInt32($"Claim_{claim.Id}_VerificationAttempts", currentAttempts + 1);
 
-                // Predefined criteria for automated verification
+                // Enhanced verification criteria for workflow
                 var criteria = new VerificationCriteria
                 {
                     MaxHoursPerMonth = 180,
                     MinHoursPerClaim = 0.5m,
                     MaxHourlyRate = 1000,
                     RequireDocumentationForHighHours = 160,
-                    AutoApproveThreshold = 120
+                    AutoApproveThreshold = 120,
+                    MaxAutoApproveAmount = 20000 // R20,000 maximum for auto-approval
                 };
 
-                // Check hours worked
+                // Basic validation checks
                 if (claim.HoursWorked > criteria.MaxHoursPerMonth)
                 {
                     result.AddError($"Hours worked ({claim.HoursWorked}) exceed maximum allowed ({criteria.MaxHoursPerMonth})");
@@ -70,21 +73,39 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     result.RecommendedAction = "Review";
                 }
 
-                // Auto-approve criteria
-                if (claim.HoursWorked <= criteria.AutoApproveThreshold &&
+                // High-value claim check
+                if (claim.TotalAmount > criteria.MaxAutoApproveAmount)
+                {
+                    result.AddWarning($"High-value claim (R{claim.TotalAmount}) requires manual review");
+                    result.RecommendedAction = "Review";
+                    result.CanAutoApprove = false;
+                }
+
+                // Auto-approve criteria - ONLY for CoordinatorReview stage
+                if (claim.CurrentStage == "CoordinatorReview" &&
+                    claim.HoursWorked <= criteria.AutoApproveThreshold &&
                     claim.HourlyRate <= 500 &&
+                    claim.TotalAmount <= criteria.MaxAutoApproveAmount &&
                     !string.IsNullOrEmpty(claim.SupportingDocument) &&
                     !result.Errors.Any())
                 {
                     result.CanAutoApprove = true;
                     result.RecommendedAction = "Approve";
-                    result.AutoApprovalReason = "Claim meets all criteria for automatic approval";
+                    result.AutoApprovalReason = "Claim meets all criteria for automatic coordinator approval";
                 }
 
-                if (!result.Errors.Any() && !result.CanAutoApprove)
+                // For ManagerReview stage, always require manual review
+                if (claim.CurrentStage == "ManagerReview")
+                {
+                    result.AddInfo("Claim at Manager stage requires manual review");
+                    result.CanAutoApprove = false;
+                    result.RecommendedAction = "Review";
+                }
+
+                if (!result.Errors.Any() && !result.CanAutoApprove && claim.CurrentStage == "CoordinatorReview")
                 {
                     result.RecommendedAction = "Review";
-                    result.AddInfo("Claim requires manual review");
+                    result.AddInfo("Claim requires manual coordinator review");
                 }
 
                 result.IsValid = !result.Errors.Any();
@@ -109,10 +130,29 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             var session = _httpContextAccessor.HttpContext.Session;
             session.SetString("LastAutomationRun", DateTime.Now.ToString());
 
+            // Get claims that are in CoordinatorReview stage for automation
             return await _context.Claims
                 .Include(c => c.User)
-                .Where(c => c.Status == "Submitted" || c.Status == "Under Review")
+                .Where(c => c.CurrentStage == "CoordinatorReview" && c.Status == "Under Review")
                 .OrderBy(c => c.SubmittedDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<Claim>> GetClaimsForCoordinatorReviewAsync()
+        {
+            return await _context.Claims
+                .Include(c => c.User)
+                .Where(c => c.CurrentStage == "CoordinatorReview")
+                .OrderBy(c => c.SubmittedDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<Claim>> GetClaimsForManagerReviewAsync()
+        {
+            return await _context.Claims
+                .Include(c => c.User)
+                .Where(c => c.CurrentStage == "ManagerReview" && c.IsCoordinatorApproved)
+                .OrderBy(c => c.CoordinatorReviewDate)
                 .ToListAsync();
         }
 
@@ -127,25 +167,36 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
 
             foreach (var claim in claims)
             {
-                var verificationResult = await AutomaticallyVerifyClaimAsync(claim);
-
-                if (verificationResult.CanAutoApprove && verificationResult.IsValid)
+                // Only process claims at coordinator review stage for auto-approval
+                if (claim.CurrentStage == "CoordinatorReview")
                 {
-                    claim.Status = "Approved";
-                    claim.RejectionReason = verificationResult.AutoApprovalReason;
-                    session.SetInt32("Automation_ApprovedCount",
-                        session.GetInt32("Automation_ApprovedCount") ?? 0 + 1);
-                }
-                else if (verificationResult.RecommendedAction == "Reject" && !verificationResult.IsValid)
-                {
-                    claim.Status = "Rejected";
-                    claim.RejectionReason = string.Join("; ", verificationResult.Errors);
-                    session.SetInt32("Automation_RejectedCount",
-                        session.GetInt32("Automation_RejectedCount") ?? 0 + 1);
-                }
+                    var verificationResult = await AutomaticallyVerifyClaimAsync(claim);
 
-                session.SetInt32("Automation_ProcessedCount",
-                    session.GetInt32("Automation_ProcessedCount") ?? 0 + 1);
+                    if (verificationResult.CanAutoApprove && verificationResult.IsValid)
+                    {
+                        // Auto-approve at coordinator level and move to manager
+                        claim.IsCoordinatorApproved = true;
+                        claim.CoordinatorApprover = "System Auto-Approval";
+                        claim.CoordinatorReviewDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                        claim.CurrentStage = "ManagerReview";
+                        claim.Status = "Pending Manager Review";
+
+                        var approvedCount = session.GetInt32("Automation_ApprovedCount") ?? 0;
+                        session.SetInt32("Automation_ApprovedCount", approvedCount + 1);
+                    }
+                    else if (verificationResult.RecommendedAction == "Reject" && !verificationResult.IsValid)
+                    {
+                        claim.Status = "Rejected";
+                        claim.RejectionReason = $"Auto-rejected: {string.Join("; ", verificationResult.Errors)}";
+                        claim.CurrentStage = "Completed";
+
+                        var rejectedCount = session.GetInt32("Automation_RejectedCount") ?? 0;
+                        session.SetInt32("Automation_RejectedCount", rejectedCount + 1);
+                    }
+
+                    var processedCount = session.GetInt32("Automation_ProcessedCount") ?? 0;
+                    session.SetInt32("Automation_ProcessedCount", processedCount + 1);
+                }
             }
 
             await _context.SaveChangesAsync();
@@ -155,7 +206,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         public async Task<WorkflowStatus> GetClaimWorkflowStatusAsync(int claimId)
         {
             var session = _httpContextAccessor.HttpContext.Session;
-            var claim = await _context.Claims.FindAsync(claimId);
+            var claim = await _context.Claims
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.Id == claimId);
 
             if (claim == null)
                 return null;
@@ -164,6 +217,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             {
                 ClaimId = claimId,
                 CurrentStatus = claim.Status,
+                CurrentStage = claim.CurrentStage,
+                IsCoordinatorApproved = claim.IsCoordinatorApproved,
+                IsManagerApproved = claim.IsManagerApproved,
                 LastVerified = session.GetString($"Claim_{claimId}_LastVerification"),
                 VerificationAttempts = session.GetInt32($"Claim_{claimId}_VerificationAttempts") ?? 0,
                 IsEligibleForAutoApproval = false
@@ -205,15 +261,19 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         public decimal MaxHourlyRate { get; set; }
         public decimal RequireDocumentationForHighHours { get; set; }
         public decimal AutoApproveThreshold { get; set; }
+        public decimal MaxAutoApproveAmount { get; set; }
     }
 
     public class WorkflowStatus
     {
         public int ClaimId { get; set; }
         public string CurrentStatus { get; set; }
+        public string CurrentStage { get; set; }
         public string LastVerified { get; set; }
         public int VerificationAttempts { get; set; }
         public bool IsEligibleForAutoApproval { get; set; }
         public string LastVerificationResult { get; set; }
+        public bool IsCoordinatorApproved { get; set; }
+        public bool IsManagerApproved { get; set; }
     }
 }

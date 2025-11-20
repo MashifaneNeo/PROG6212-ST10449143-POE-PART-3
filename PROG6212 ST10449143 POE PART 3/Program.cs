@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using PROG6212_ST10449143_POE_PART_1.Extension;
 using PROG6212_ST10449143_POE_PART_1.Models;
 using PROG6212_ST10449143_POE_PART_1.Services;
 
@@ -7,6 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Add HttpContextAccessor for session access in services
+builder.Services.AddHttpContextAccessor();
 
 // Add DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -22,24 +26,36 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     options.Password.RequireNonAlphanumeric = false;
     options.SignIn.RequireConfirmedAccount = false;
     options.User.RequireUniqueEmail = true;
+
+    // Lockout settings
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// Add session support
+// Add session support with enhanced configuration
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest
+        : Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+    options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict;
 });
 
+// Configure application cookie
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
     options.LogoutPath = "/Account/Logout";
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.SlidingExpiration = true;
 });
 
 // Register services
@@ -47,6 +63,17 @@ builder.Services.AddScoped<IClaimService, DatabaseClaimService>();
 builder.Services.AddScoped<IHRService, HRService>();
 builder.Services.AddScoped<DocumentValidator>();
 builder.Services.AddScoped<IClaimAutomationService, ClaimAutomationService>();
+
+// Add CORS for API endpoints (if needed)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 var app = builder.Build();
 
@@ -56,19 +83,37 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+else
+{
+    app.UseDeveloperExceptionPage();
+}
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+// Use CORS
+app.UseCors("AllowAll");
+
 app.UseRouting();
-app.UseSession(); // Add session middleware
+
+// Add session middleware BEFORE authentication and authorization
+app.UseSession();
+
+// Add custom session security middleware
+app.UseSessionSecurity();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Map controller routes
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Map API routes (if you want to add Web API endpoints)
+app.MapControllerRoute(
+    name: "api",
+    pattern: "api/{controller}/{action=Index}/{id?}");
 
 // Seed roles and admin user
 using (var scope = app.Services.CreateScope())
@@ -100,7 +145,8 @@ using (var scope = app.Services.CreateScope())
             Email = "hr@university.ac.za",
             HourlyRate = 0,
             EmployeeId = "HR001",
-            Department = "Human Resources"
+            Department = "Human Resources",
+            IsActive = true
         };
 
         var hrUserExists = await userManager.FindByEmailAsync(hrUser.Email);
@@ -127,7 +173,8 @@ using (var scope = app.Services.CreateScope())
             Email = "john.smith@university.ac.za",
             HourlyRate = 250,
             EmployeeId = "LEC001",
-            Department = "Computer Science"
+            Department = "Computer Science",
+            IsActive = true
         };
 
         var lecturerExists = await userManager.FindByEmailAsync(lecturerUser.Email);
@@ -154,7 +201,8 @@ using (var scope = app.Services.CreateScope())
             Email = "sarah.johnson@university.ac.za",
             HourlyRate = 0,
             EmployeeId = "COORD001",
-            Department = "Computer Science"
+            Department = "Computer Science",
+            IsActive = true
         };
 
         var coordinatorExists = await userManager.FindByEmailAsync(coordinatorUser.Email);
@@ -165,6 +213,10 @@ using (var scope = app.Services.CreateScope())
             {
                 await userManager.AddToRoleAsync(coordinatorUser, "Coordinator");
                 Console.WriteLine("Sample coordinator created successfully!");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create coordinator: {string.Join(", ", createCoordinator.Errors.Select(e => e.Description))}");
             }
         }
 
@@ -177,7 +229,8 @@ using (var scope = app.Services.CreateScope())
             Email = "david.wilson@university.ac.za",
             HourlyRate = 0,
             EmployeeId = "MGR001",
-            Department = "Academic Affairs"
+            Department = "Academic Affairs",
+            IsActive = true
         };
 
         var managerExists = await userManager.FindByEmailAsync(managerUser.Email);
@@ -191,7 +244,6 @@ using (var scope = app.Services.CreateScope())
             }
             else
             {
-                // Log the specific errors
                 Console.WriteLine($"Failed to create academic manager: {string.Join(", ", createManager.Errors.Select(e => e.Description))}");
             }
         }
@@ -206,11 +258,43 @@ using (var scope = app.Services.CreateScope())
                 Console.WriteLine("Added AcademicManager role to existing user");
             }
         }
+
+        // Create additional sample users for testing workflow
+        var lecturer2 = new User
+        {
+            FirstName = "Emily",
+            LastName = "Brown",
+            UserName = "emily.brown@university.ac.za",
+            Email = "emily.brown@university.ac.za",
+            HourlyRate = 280,
+            EmployeeId = "LEC002",
+            Department = "Engineering",
+            IsActive = true
+        };
+
+        var lecturer2Exists = await userManager.FindByEmailAsync(lecturer2.Email);
+        if (lecturer2Exists == null)
+        {
+            var createLecturer2 = await userManager.CreateAsync(lecturer2, "Lecturer123!");
+            if (createLecturer2.Succeeded)
+            {
+                await userManager.AddToRoleAsync(lecturer2, "Lecturer");
+                Console.WriteLine("Second sample lecturer created successfully!");
+            }
+        }
+
+        Console.WriteLine("Database seeding completed successfully!");
+
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error seeding database: {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
+
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+        }
     }
 }
 

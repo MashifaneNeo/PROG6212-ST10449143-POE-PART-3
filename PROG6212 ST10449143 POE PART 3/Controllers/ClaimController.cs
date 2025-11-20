@@ -15,19 +15,22 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         private readonly IWebHostEnvironment _environment;
         private readonly AppDbContext _context;
         private readonly UserManager<User> _userManager;
+        private readonly SignInManager<User> _signInManager;
 
         public ClaimsController(
             IClaimService claimService,
             IClaimAutomationService automationService,
             IWebHostEnvironment environment,
             AppDbContext context,
-            UserManager<User> userManager)
+            UserManager<User> userManager,
+            SignInManager<User> signInManager)
         {
             _claimService = claimService;
             _automationService = automationService;
             _environment = environment;
             _context = context;
             _userManager = userManager;
+            _signInManager = signInManager;
         }
 
         [Authorize(Roles = "Lecturer")]
@@ -144,8 +147,11 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                         HourlyRate = currentUser.HourlyRate,
                         AdditionalNotes = model.AdditionalNotes ?? string.Empty,
                         SupportingDocument = fileName ?? string.Empty,
-                        Status = "Submitted",
-                        SubmittedDate = DateTime.Now
+                        Status = "Under Review",
+                        SubmittedDate = DateTime.Now,
+                        CurrentStage = "CoordinatorReview", // Start with Coordinator
+                        IsCoordinatorApproved = false,
+                        IsManagerApproved = false
                     };
 
                     Console.WriteLine($"Attempting to save claim for user: {currentUser.Id}");
@@ -160,37 +166,42 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                         if (_automationService != null)
                         {
                             var verificationResult = await _automationService.AutomaticallyVerifyClaimAsync(claim);
-                            if (verificationResult.CanAutoApprove && verificationResult.IsValid)
+                            if (verificationResult.CanAutoApprove && verificationResult.IsValid && claim.CurrentStage == "CoordinatorReview")
                             {
-                                await _claimService.UpdateClaimStatusAsync(claim.Id, "Approved", verificationResult.AutoApprovalReason);
-                                TempData["SuccessMessage"] = "Claim submitted and automatically approved!";
+                                // Auto-approve at coordinator level and move to manager
+                                claim.IsCoordinatorApproved = true;
+                                claim.CoordinatorApprover = "System Auto-Approval";
+                                claim.CoordinatorReviewDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                                claim.CurrentStage = "ManagerReview";
+                                claim.Status = "Pending Manager Review";
+                                await _context.SaveChangesAsync();
+
+                                TempData["SuccessMessage"] = "Claim submitted and automatically approved by Coordinator! Awaiting Manager review.";
                             }
                             else
                             {
-                                TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting review.";
+                                TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting Coordinator review.";
                             }
                         }
                         else
                         {
-                            TempData["SuccessMessage"] = "Claim submitted successfully!";
+                            TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting Coordinator review.";
                         }
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Automated verification error: {ex.Message}");
-                        TempData["SuccessMessage"] = "Claim submitted successfully!";
+                        TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting Coordinator review.";
                     }
 
                     return RedirectToAction("Submit");
                 }
                 catch (Exception ex)
                 {
-                    
                     Console.WriteLine($"Error saving claim: {ex.Message}");
                     Console.WriteLine($"Inner exception: {ex.InnerException?.Message}");
                     Console.WriteLine($"Stack trace: {ex.StackTrace}");
 
-                    // Provide more specific error messages
                     string errorMessage = ex.InnerException?.Message ?? ex.Message;
 
                     if (errorMessage.Contains("FK") || errorMessage.Contains("user"))
@@ -212,10 +223,290 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 }
             }
 
-            // Repopulate user data if validation fails
             model.LecturerName = $"{currentUser.FirstName} {currentUser.LastName}";
             model.HourlyRate = currentUser.HourlyRate;
             return View(model);
+        }
+
+        // COORDINATOR WORKFLOW METHODS
+        [Authorize(Roles = "Coordinator")]
+        public async Task<IActionResult> CoordinatorApprovals()
+        {
+            try
+            {
+                // Enhanced session security
+                if (!await ValidateCoordinatorSession())
+                {
+                    await _signInManager.SignOutAsync();
+                    return RedirectToAction("Login", "Account");
+                }
+
+                // Only show claims at CoordinatorReview stage
+                var coordinatorClaims = await _context.Claims
+                    .Include(c => c.User)
+                    .Where(c => c.CurrentStage == "CoordinatorReview" && c.Status == "Under Review")
+                    .OrderBy(c => c.SubmittedDate)
+                    .ToListAsync();
+
+                // Store in session for audit
+                HttpContext.Session.SetString("Coordinator_LastView", DateTime.Now.ToString());
+                HttpContext.Session.SetInt32("Coordinator_PendingCount", coordinatorClaims.Count);
+
+                return View(coordinatorClaims);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading coordinator approvals: {ex.Message}");
+                TempData["ErrorMessage"] = "Error loading claims for approval.";
+                return View(new List<Claim>());
+            }
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Coordinator")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CoordinatorApprove(int id)
+        {
+            try
+            {
+                // Session validation
+                if (!await ValidateCoordinatorSession())
+                {
+                    await _signInManager.SignOutAsync();
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var claim = await _claimService.GetClaimByIdAsync(id);
+                if (claim == null || claim.CurrentStage != "CoordinatorReview")
+                {
+                    TempData["ErrorMessage"] = "Claim not found or not ready for coordinator approval.";
+                    return RedirectToAction("CoordinatorApprovals");
+                }
+
+                // Update claim workflow - move to Manager
+                claim.IsCoordinatorApproved = true;
+                claim.CoordinatorApprover = User.Identity.Name;
+                claim.CoordinatorReviewDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                claim.CurrentStage = "ManagerReview";
+                claim.Status = "Pending Manager Review";
+
+                await _context.SaveChangesAsync();
+
+                // Session audit trail
+                HttpContext.Session.SetString($"Approved_Claim_{id}", $"{DateTime.Now}:{User.Identity.Name}");
+
+                TempData["SuccessMessage"] = "Claim approved and forwarded to Academic Manager!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error approving claim: {ex.Message}";
+            }
+
+            return RedirectToAction("CoordinatorApprovals");
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Coordinator")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CoordinatorReject(int id, string rejectionReason)
+        {
+            try
+            {
+                if (!await ValidateCoordinatorSession())
+                {
+                    await _signInManager.SignOutAsync();
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var claim = await _claimService.GetClaimByIdAsync(id);
+                if (claim == null || claim.CurrentStage != "CoordinatorReview")
+                {
+                    TempData["ErrorMessage"] = "Claim not found or not in coordinator review stage.";
+                    return RedirectToAction("CoordinatorApprovals");
+                }
+
+                if (string.IsNullOrEmpty(rejectionReason))
+                {
+                    TempData["ErrorMessage"] = "Rejection reason is required.";
+                    return RedirectToAction("CoordinatorApprovals");
+                }
+
+                claim.Status = "Rejected";
+                claim.RejectionReason = $"Rejected by Coordinator: {rejectionReason}";
+                claim.CurrentStage = "Completed";
+
+                await _context.SaveChangesAsync();
+
+                HttpContext.Session.SetString($"Rejected_Claim_{id}", $"{DateTime.Now}:{User.Identity.Name}");
+
+                TempData["SuccessMessage"] = "Claim rejected successfully!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error rejecting claim: {ex.Message}";
+            }
+
+            return RedirectToAction("CoordinatorApprovals");
+        }
+
+        // MANAGER WORKFLOW METHODS
+        [Authorize(Roles = "AcademicManager")]
+        public async Task<IActionResult> ManagerApprovals()
+        {
+            try
+            {
+                // Enhanced session security for manager
+                if (!await ValidateManagerSession())
+                {
+                    await _signInManager.SignOutAsync();
+                    return RedirectToAction("Login", "Account");
+                }
+
+                // Only show claims that have been approved by coordinator
+                var managerClaims = await _context.Claims
+                    .Include(c => c.User)
+                    .Where(c => c.CurrentStage == "ManagerReview" && c.IsCoordinatorApproved)
+                    .OrderBy(c => c.CoordinatorReviewDate)
+                    .ToListAsync();
+
+                // Session tracking
+                HttpContext.Session.SetString("Manager_LastView", DateTime.Now.ToString());
+                HttpContext.Session.SetInt32("Manager_PendingCount", managerClaims.Count);
+
+                return View(managerClaims);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading manager approvals: {ex.Message}");
+                TempData["ErrorMessage"] = "Error loading claims for final approval.";
+                return View(new List<Claim>());
+            }
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "AcademicManager")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ManagerApprove(int id)
+        {
+            try
+            {
+                if (!await ValidateManagerSession())
+                {
+                    await _signInManager.SignOutAsync();
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var claim = await _claimService.GetClaimByIdAsync(id);
+                if (claim == null || claim.CurrentStage != "ManagerReview" || !claim.IsCoordinatorApproved)
+                {
+                    TempData["ErrorMessage"] = "Claim not found or not ready for manager approval.";
+                    return RedirectToAction("ManagerApprovals");
+                }
+
+                // Final approval
+                claim.IsManagerApproved = true;
+                claim.ManagerApprover = User.Identity.Name;
+                claim.ManagerReviewDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                claim.CurrentStage = "Completed";
+                claim.Status = "Approved";
+
+                await _context.SaveChangesAsync();
+
+                // Session audit
+                HttpContext.Session.SetString($"FinalApproved_Claim_{id}", $"{DateTime.Now}:{User.Identity.Name}");
+
+                TempData["SuccessMessage"] = "Claim fully approved and processed!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error finalizing claim: {ex.Message}";
+            }
+
+            return RedirectToAction("ManagerApprovals");
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "AcademicManager")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ManagerReject(int id, string rejectionReason)
+        {
+            try
+            {
+                if (!await ValidateManagerSession())
+                {
+                    await _signInManager.SignOutAsync();
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var claim = await _claimService.GetClaimByIdAsync(id);
+                if (claim == null || claim.CurrentStage != "ManagerReview" || !claim.IsCoordinatorApproved)
+                {
+                    TempData["ErrorMessage"] = "Claim not found or not in manager review stage.";
+                    return RedirectToAction("ManagerApprovals");
+                }
+
+                if (string.IsNullOrEmpty(rejectionReason))
+                {
+                    TempData["ErrorMessage"] = "Rejection reason is required.";
+                    return RedirectToAction("ManagerApprovals");
+                }
+
+                claim.Status = "Rejected";
+                claim.RejectionReason = $"Rejected by Academic Manager: {rejectionReason}";
+                claim.CurrentStage = "Completed";
+
+                await _context.SaveChangesAsync();
+
+                HttpContext.Session.SetString($"ManagerRejected_Claim_{id}", $"{DateTime.Now}:{User.Identity.Name}");
+
+                TempData["SuccessMessage"] = "Claim rejected successfully!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error rejecting claim: {ex.Message}";
+            }
+
+            return RedirectToAction("ManagerApprovals");
+        }
+
+        // SESSION VALIDATION METHODS
+        private async Task<bool> ValidateCoordinatorSession()
+        {
+            var sessionKey = $"CoordinatorAccess_{User.Identity.Name}";
+            var lastAccess = HttpContext.Session.GetString(sessionKey);
+
+            if (string.IsNullOrEmpty(lastAccess))
+            {
+                HttpContext.Session.SetString(sessionKey, DateTime.Now.ToString());
+                return true;
+            }
+
+            if ((DateTime.Now - DateTime.Parse(lastAccess)).TotalMinutes > 30)
+            {
+                return false;
+            }
+            HttpContext.Session.SetString(sessionKey, DateTime.Now.ToString());
+            return true;
+        }
+
+        private async Task<bool> ValidateManagerSession()
+        {
+            var sessionKey = $"ManagerAccess_{User.Identity.Name}";
+            var lastAccess = HttpContext.Session.GetString(sessionKey);
+
+            if (string.IsNullOrEmpty(lastAccess))
+            {
+                HttpContext.Session.SetString(sessionKey, DateTime.Now.ToString());
+                return true;
+            }
+
+            if ((DateTime.Now - DateTime.Parse(lastAccess)).TotalMinutes > 30)
+            {
+                return false;
+            }
+
+            HttpContext.Session.SetString(sessionKey, DateTime.Now.ToString());
+            return true;
         }
 
         [Authorize(Roles = "Lecturer,Coordinator,AcademicManager,HR")]
@@ -228,13 +519,21 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
                 if (User.IsInRole("Lecturer"))
                 {
-                    // Lecturers only see their own claims
                     var allClaims = await _claimService.GetAllClaimsAsync();
                     claims = allClaims.Where(c => c.UserId == currentUser?.Id).ToList();
                 }
+                else if (User.IsInRole("Coordinator"))
+                {
+                    // Coordinators see all claims but workflow shows their stage
+                    claims = await _claimService.GetAllClaimsAsync();
+                }
+                else if (User.IsInRole("AcademicManager"))
+                {
+                    // Managers see all claims but workflow shows their stage
+                    claims = await _claimService.GetAllClaimsAsync();
+                }
                 else
                 {
-                    // Coordinators, Academic Managers and HR see all claims
                     claims = await _claimService.GetAllClaimsAsync();
                 }
 
@@ -248,37 +547,31 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             }
         }
 
+        // Updated Approvals method for backward compatibility
         [Authorize(Roles = "Coordinator,AcademicManager,HR")]
         public async Task<IActionResult> Approvals()
         {
+            // Redirect based on role
+            if (User.IsInRole("Coordinator"))
+            {
+                return RedirectToAction("CoordinatorApprovals");
+            }
+            else if (User.IsInRole("AcademicManager"))
+            {
+                return RedirectToAction("ManagerApprovals");
+            }
+
+            // HR can use the old view
             try
             {
-                // Security check using sessions
                 HttpContext.Session.SetString("LastAccess_Approvals", DateTime.Now.ToString());
-                HttpContext.Session.SetString("CurrentUser_Approvals", User.Identity.Name);
-
-                // Automatically move submitted claims to Under Review when viewing approvals
-                var submittedClaims = await _context.Claims
-                    .Where(c => c.Status == "Submitted")
-                    .ToListAsync();
-
-                foreach (var claim in submittedClaims)
-                {
-                    claim.Status = "Under Review";
-                }
-
-                if (submittedClaims.Any())
-                {
-                    await _context.SaveChangesAsync();
-                }
-
                 var pendingClaims = await _claimService.GetPendingClaimsAsync();
                 return View(pendingClaims);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading approvals: {ex.Message}");
-                TempData["ErrorMessage"] = "Error loading claims for approval. Please try again.";
+                TempData["ErrorMessage"] = "Error loading claims for approval.";
                 return View(new List<Claim>());
             }
         }
@@ -286,10 +579,14 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         [Authorize(Roles = "Coordinator,AcademicManager")]
         public async Task<IActionResult> CoordinatorDashboard()
         {
-            // Security check using sessions
+            if (!await ValidateCoordinatorSession())
+            {
+                await _signInManager.SignOutAsync();
+                return RedirectToAction("Login", "Account");
+            }
+
             var currentUser = await _userManager.GetUserAsync(User);
             HttpContext.Session.SetString("LastAccess_Coordinator", DateTime.Now.ToString());
-            HttpContext.Session.SetString("CurrentUserRole", "Coordinator");
 
             if (!User.IsInRole("Coordinator") && !User.IsInRole("AcademicManager"))
             {
@@ -316,10 +613,14 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         [Authorize(Roles = "AcademicManager")]
         public async Task<IActionResult> AcademicManagerDashboard()
         {
-            // Security check using sessions
+            if (!await ValidateManagerSession())
+            {
+                await _signInManager.SignOutAsync();
+                return RedirectToAction("Login", "Account");
+            }
+
             var currentUser = await _userManager.GetUserAsync(User);
             HttpContext.Session.SetString("LastAccess_AcademicManager", DateTime.Now.ToString());
-            HttpContext.Session.SetString("CurrentUserRole", "AcademicManager");
 
             if (!User.IsInRole("AcademicManager"))
             {
@@ -327,21 +628,18 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 return RedirectToAction("AccessDenied", "Account");
             }
 
-            // FIXED: First get the data from database, then sort in memory
             var claims = await _context.Claims
                 .Include(c => c.User)
-                .Where(c => c.Status == "Under Review" || c.Status == "Submitted")
-                .ToListAsync(); // Get data from database first
+                .Where(c => c.CurrentStage == "ManagerReview" || c.Status == "Pending Manager Review")
+                .ToListAsync();
 
-            // Now sort in memory (client-side)
             var sortedClaims = claims
                 .OrderByDescending(c => c.HoursWorked)
-                .ThenByDescending(c => c.TotalAmount) // This works now because we're in memory
+                .ThenByDescending(c => c.TotalAmount)
                 .ToList();
 
             var highValueClaims = sortedClaims.Where(c => c.TotalAmount > 10000).ToList();
 
-            // Calculate department summaries in memory
             var departmentSummary = sortedClaims
                 .GroupBy(c => c.User?.Department ?? "Unknown")
                 .Select(g => new DepartmentSummary
@@ -365,75 +663,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return View(managerModel);
         }
 
-        [HttpPost]
-        [Authorize(Roles = "Coordinator,HR")]
-        public async Task<IActionResult> Approve(int id)
-        {
-            try
-            {
-                Console.WriteLine($"=== APPROVE ACTION CALLED for claim {id} ===");
-
-                // Verify claim exists first
-                var claim = await _claimService.GetClaimByIdAsync(id);
-                if (claim == null)
-                {
-                    TempData["ErrorMessage"] = $"Claim with ID {id} not found.";
-                    return RedirectToAction("Approvals");
-                }
-
-                Console.WriteLine($"Found claim for user: {claim.UserId}, Current status: {claim.Status}");
-
-                await _claimService.UpdateClaimStatusAsync(id, "Approved");
-
-                Console.WriteLine($"Claim {id} approved successfully");
-                TempData["ApprovalMessage"] = "Claim approved successfully!";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error approving claim {id}: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                TempData["ErrorMessage"] = $"Error approving claim: {ex.Message}";
-            }
-
-            return RedirectToAction("Approvals");
-        }
-
-        [HttpPost]
-        [Authorize(Roles = "Coordinator,HR")]
-        public async Task<IActionResult> Reject(int id, string rejectionReason)
-        {
-            try
-            {
-                Console.WriteLine($"=== REJECT ACTION CALLED for claim {id} ===");
-
-                var claim = await _claimService.GetClaimByIdAsync(id);
-                if (claim == null)
-                {
-                    TempData["ErrorMessage"] = $"Claim with ID {id} not found.";
-                    return RedirectToAction("Approvals");
-                }
-
-                if (string.IsNullOrEmpty(rejectionReason))
-                {
-                    TempData["ErrorMessage"] = "Rejection reason is required.";
-                    return RedirectToAction("Approvals");
-                }
-
-                await _claimService.UpdateClaimStatusAsync(id, "Rejected", rejectionReason);
-
-                Console.WriteLine($"Claim {id} rejected successfully");
-                TempData["ApprovalMessage"] = "Claim rejected successfully!";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error rejecting claim {id}: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                TempData["ErrorMessage"] = $"Error rejecting claim: {ex.Message}";
-            }
-
-            return RedirectToAction("Approvals");
-        }
-
+        // Keep existing methods but update automation to respect workflow
         [HttpPost]
         [Authorize(Roles = "Coordinator,AcademicManager")]
         public async Task<IActionResult> RunAutomatedVerification(int claimId)
@@ -446,7 +676,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
             var result = await _automationService.AutomaticallyVerifyClaimAsync(claim);
 
-            // Store verification result in session
             HttpContext.Session.SetString($"VerificationResult_{claimId}",
                 System.Text.Json.JsonSerializer.Serialize(result));
 
@@ -468,6 +697,11 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         {
             try
             {
+                if (!await ValidateCoordinatorSession())
+                {
+                    return RedirectToAction("Login", "Account");
+                }
+
                 HttpContext.Session.SetString("BulkProcessing_Started", DateTime.Now.ToString());
                 await _automationService.ProcessAutomatedApprovalsAsync();
 
@@ -488,27 +722,15 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return RedirectToAction("CoordinatorDashboard");
         }
 
-        [HttpGet]
-        [Authorize(Roles = "Coordinator,AcademicManager")]
-        public async Task<IActionResult> GetClaimVerificationStatus(int claimId)
-        {
-            var status = await _automationService.GetClaimWorkflowStatusAsync(claimId);
-            return Json(new
-            {
-                claimId = status.ClaimId,
-                currentStatus = status.CurrentStatus,
-                lastVerified = status.LastVerified,
-                verificationAttempts = status.VerificationAttempts,
-                eligibleForAutoApproval = status.IsEligibleForAutoApproval,
-                lastResult = status.LastVerificationResult
-            });
-        }
-
         [HttpPost]
         [Authorize(Roles = "AcademicManager")]
         public async Task<IActionResult> OverrideApproval(int claimId, string reason)
         {
-            // Security check - only AcademicManager can override
+            if (!await ValidateManagerSession())
+            {
+                return Json(new { success = false, error = "Session expired" });
+            }
+
             if (!User.IsInRole("AcademicManager"))
             {
                 return Json(new { success = false, error = "Access denied" });
@@ -524,47 +746,21 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             HttpContext.Session.SetString($"Override_{claimId}",
                 $"{DateTime.Now}: {User.Identity.Name} - {reason}");
 
-            await _claimService.UpdateClaimStatusAsync(claimId, "Approved",
-                $"Manually approved by Academic Manager: {reason}");
+            // Override workflow and approve directly
+            claim.IsCoordinatorApproved = true;
+            claim.IsManagerApproved = true;
+            claim.CoordinatorApprover = "System Override";
+            claim.ManagerApprover = User.Identity.Name;
+            claim.CurrentStage = "Completed";
+            claim.Status = "Approved";
+            claim.RejectionReason = $"Manually approved by Academic Manager: {reason}";
+
+            await _context.SaveChangesAsync();
 
             return Json(new { success = true, message = "Claim approved manually" });
         }
 
-        [HttpPost]
-        [Authorize(Roles = "Lecturer,HR")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            try
-            {
-                var currentUser = await _userManager.GetUserAsync(User);
-                var claim = await _claimService.GetClaimByIdAsync(id);
-
-                // Security check: Lecturers can only delete their own claims
-                if (User.IsInRole("Lecturer") && claim?.UserId != currentUser?.Id)
-                {
-                    TempData["ErrorMessage"] = "You can only delete your own claims.";
-                    return RedirectToAction("ViewClaims");
-                }
-
-                var result = await _claimService.DeleteClaimAsync(id);
-                if (result)
-                {
-                    TempData["SuccessMessage"] = "Claim deleted successfully!";
-                }
-                else
-                {
-                    TempData["ErrorMessage"] = "Error deleting claim. Claim not found.";
-                }
-            }
-            catch (Exception ex)
-            {
-                TempData["ErrorMessage"] = "An error occurred while deleting the claim.";
-                Console.WriteLine($"Delete error: {ex.Message}");
-            }
-
-            return RedirectToAction("ViewClaims");
-        }
-
+        // Keep other existing methods (TrackStatus, Details, CalculateTotal, etc.) unchanged
         [Authorize(Roles = "Lecturer")]
         public async Task<IActionResult> TrackStatus()
         {
@@ -603,7 +799,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     return RedirectToAction("ViewClaims");
                 }
 
-                // Security check: Lecturers can only view their own claim details
                 var currentUser = await _userManager.GetUserAsync(User);
                 if (User.IsInRole("Lecturer") && claim.UserId != currentUser?.Id)
                 {
@@ -633,31 +828,20 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     return Json(new { success = false, error = "User not found" });
                 }
 
-                // Validate hours - Fixed decimal comparisons
                 if (hoursWorked < 0.5m)
                 {
-                    return Json(new
-                    {
-                        success = false,
-                        error = "Hours must be at least 0.5",
-                        isValid = false
-                    });
+                    return Json(new { success = false, error = "Hours must be at least 0.5", isValid = false });
                 }
 
                 if (hoursWorked > 180m)
                 {
-                    return Json(new
-                    {
-                        success = false,
-                        error = "Hours cannot exceed 180 per month",
-                        isValid = false
-                    });
+                    return Json(new { success = false, error = "Hours cannot exceed 180 per month", isValid = false });
                 }
 
                 var hourlyRate = currentUser.HourlyRate;
                 var totalAmount = hoursWorked * hourlyRate;
-                var remainingHours = 180m - hoursWorked; // Fixed: using 180m for decimal
-                var progressPercentage = (double)(hoursWorked / 180m) * 100; // Fixed: cast to double for percentage
+                var remainingHours = 180m - hoursWorked;
+                var progressPercentage = (double)(hoursWorked / 180m) * 100;
 
                 return Json(new
                 {
@@ -700,6 +884,40 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             }
         }
 
+        [HttpPost]
+        [Authorize(Roles = "Lecturer,HR")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                var claim = await _claimService.GetClaimByIdAsync(id);
+
+                if (User.IsInRole("Lecturer") && claim?.UserId != currentUser?.Id)
+                {
+                    TempData["ErrorMessage"] = "You can only delete your own claims.";
+                    return RedirectToAction("ViewClaims");
+                }
+
+                var result = await _claimService.DeleteClaimAsync(id);
+                if (result)
+                {
+                    TempData["SuccessMessage"] = "Claim deleted successfully!";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Error deleting claim. Claim not found.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "An error occurred while deleting the claim.";
+                Console.WriteLine($"Delete error: {ex.Message}");
+            }
+
+            return RedirectToAction("ViewClaims");
+        }
+
         private AutomationEfficiency CalculateAutomationEfficiency()
         {
             var processed = HttpContext.Session.GetInt32("Automation_ProcessedCount") ?? 1;
@@ -716,6 +934,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
     }
 
+    // ViewModel classes remain the same
     public class CoordinatorDashboardViewModel
     {
         public List<Claim> PendingClaims { get; set; }
