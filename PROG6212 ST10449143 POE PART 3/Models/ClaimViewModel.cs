@@ -17,7 +17,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         public decimal HoursWorked { get; set; } = 0;
 
         [Display(Name = "Hourly Rate")]
-        public decimal HourlyRate { get; set; } = 0; // Make this read-only
+        public decimal HourlyRate { get; set; } = 0;
 
         [Display(Name = "Total Amount")]
         public decimal TotalAmount => HoursWorked * HourlyRate;
