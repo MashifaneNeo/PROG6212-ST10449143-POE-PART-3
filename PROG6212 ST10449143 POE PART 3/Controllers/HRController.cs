@@ -1,5 +1,4 @@
-﻿// Controllers/HRController.cs
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -100,20 +99,69 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
 
         [HttpGet]
-        public IActionResult Reports()
+        public async Task<IActionResult> Reports()
         {
+            try
+            {
+                var claims = await _context.Claims.ToListAsync();
+
+                ViewBag.TotalClaims = claims.Count;
+                ViewBag.ApprovedClaims = claims.Count(c => c.Status == "Approved");
+                ViewBag.PendingClaims = claims.Count(c => c.Status == "Submitted" || c.Status == "Under Review");
+                ViewBag.TotalAmount = claims.Where(c => c.Status == "Approved").Sum(c => c.TotalAmount).ToString("N2");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading report statistics: {ex.Message}");
+                // default values
+                ViewBag.TotalClaims = 0;
+                ViewBag.ApprovedClaims = 0;
+                ViewBag.PendingClaims = 0;
+                ViewBag.TotalAmount = "0.00";
+            }
+
             return View(new ReportFilterViewModel());
         }
 
         [HttpPost]
         public async Task<IActionResult> GenerateReport(ReportFilterViewModel filters)
         {
-            var claims = await _hrService.GetClaimsForReportAsync(filters);
-            var reportTitle = $"Claims Report - {DateTime.Now:yyyy-MM-dd}";
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    TempData["ErrorMessage"] = "Please provide valid filter criteria.";
+                    return View("Reports", filters);
+                }
 
-            var pdfBytes = await _hrService.GeneratePdfReportAsync(claims, reportTitle);
+                var claims = await _hrService.GetClaimsForReportAsync(filters);
 
-            return File(pdfBytes, "application/pdf", $"{reportTitle}.pdf");
+                if (!claims.Any())
+                {
+                    TempData["ErrorMessage"] = "No claims found matching the specified criteria.";
+                    return View("Reports", filters);
+                }
+
+                var reportTitle = $"Claims Report - {DateTime.Now:yyyy-MM-dd}";
+                if (filters.StartDate.HasValue && filters.EndDate.HasValue)
+                {
+                    reportTitle = $"Claims Report - {filters.StartDate.Value:yyyy-MM-dd} to {filters.EndDate.Value:yyyy-MM-dd}";
+                }
+                else if (!string.IsNullOrEmpty(filters.ReportType))
+                {
+                    reportTitle = $"{filters.ReportType} Claims Report - {DateTime.Now:yyyy-MM-dd}";
+                }
+
+                var pdfBytes = await _hrService.GeneratePdfReportAsync(claims, reportTitle);
+
+                return File(pdfBytes, "application/pdf", $"{reportTitle}.pdf");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating report: {ex.Message}");
+                TempData["ErrorMessage"] = $"Error generating report: {ex.Message}";
+                return View("Reports", filters);
+            }
         }
 
         [HttpPost]
@@ -217,6 +265,46 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             catch (Exception ex)
             {
                 return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        [Authorize(Roles = "HR")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            try
+            {
+                var totalUsers = await _userManager.Users.CountAsync();
+
+                var currentMonth = DateTime.Now.Month;
+                var currentYear = DateTime.Now.Year;
+
+                var claims = await _context.Claims
+                    .Where(c => c.SubmittedDate.Month == currentMonth && c.SubmittedDate.Year == currentYear)
+                    .ToListAsync();
+
+                var pendingClaims = claims.Count(c => c.Status == "Submitted" || c.Status == "Under Review");
+                var approvedClaims = claims.Count(c => c.Status == "Approved");
+                var totalAmount = claims.Where(c => c.Status == "Approved").Sum(c => c.TotalAmount);
+
+                return Json(new
+                {
+                    totalUsers,
+                    pendingClaims,
+                    approvedClaims,
+                    totalAmount
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting dashboard stats: {ex.Message}");
+                return Json(new
+                {
+                    totalUsers = 0,
+                    pendingClaims = 0,
+                    approvedClaims = 0,
+                    totalAmount = 0m
+                });
             }
         }
 

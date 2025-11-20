@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using PROG6212_ST10449143_POE_PART_1.Models;
 using System.Linq.Dynamic.Core;
+using System.Text;
 
 namespace PROG6212_ST10449143_POE_PART_1.Services
 {
@@ -46,8 +47,8 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     HourlyRate = model.HourlyRate,
                     EmployeeId = model.EmployeeId ?? string.Empty,
                     Department = model.Department ?? string.Empty,
-                    DateCreated = DateTime.Now, 
-                    IsActive = true 
+                    DateCreated = DateTime.Now,
+                    IsActive = true
                 };
 
                 Console.WriteLine($"Creating user: {user.FirstName} {user.LastName}, Email: {user.Email}");
@@ -81,7 +82,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 return (false, null, errorMessage);
             }
         }
-        
+
 
         public async Task<bool> UpdateUserAsync(UpdateUserViewModel model)
         {
@@ -127,17 +128,47 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 .Include(c => c.User)
                 .AsQueryable();
 
+            // Apply date filters
             if (filters.StartDate.HasValue)
-                query = query.Where(c => c.SubmittedDate >= filters.StartDate.Value);
+            {
+                var startDate = filters.StartDate.Value.Date;
+                query = query.Where(c => c.SubmittedDate >= startDate);
+            }
 
             if (filters.EndDate.HasValue)
-                query = query.Where(c => c.SubmittedDate <= filters.EndDate.Value);
+            {
+                var endDate = filters.EndDate.Value.Date.AddDays(1).AddSeconds(-1);
+                query = query.Where(c => c.SubmittedDate <= endDate);
+            }
 
+            // Apply department filter
             if (!string.IsNullOrEmpty(filters.Department))
+            {
                 query = query.Where(c => c.User.Department == filters.Department);
+            }
 
+            // Apply status filter
             if (!string.IsNullOrEmpty(filters.Status))
+            {
                 query = query.Where(c => c.Status == filters.Status);
+            }
+
+            // Apply report type specific filters
+            if (!string.IsNullOrEmpty(filters.ReportType))
+            {
+                switch (filters.ReportType)
+                {
+                    case "Monthly":
+                        var currentMonth = DateTime.Now.Month;
+                        var currentYear = DateTime.Now.Year;
+                        query = query.Where(c => c.SubmittedDate.Month == currentMonth && c.SubmittedDate.Year == currentYear);
+                        break;
+                    case "User":
+                        break;
+                    case "Department":
+                        break;
+                }
+            }
 
             return await query
                 .OrderByDescending(c => c.SubmittedDate)
@@ -146,17 +177,89 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
 
         public async Task<byte[]> GeneratePdfReportAsync(List<Claim> claims, string reportTitle)
         {
-            var reportContent = $"Report: {reportTitle}\n\n";
-            reportContent += $"Generated: {DateTime.Now}\n";
-            reportContent += $"Total Claims: {claims.Count}\n";
-            reportContent += $"Total Amount: R {claims.Sum(c => c.TotalAmount):0.00}\n\n";
-
-            foreach (var claim in claims)
+            try
             {
-                reportContent += $"Claim #{claim.Id}: {claim.User?.FirstName} {claim.User?.LastName} - {claim.Month} - R {claim.TotalAmount:0.00}\n";
-            }
+                var reportContent = new StringBuilder();
 
-            return System.Text.Encoding.UTF8.GetBytes(reportContent);
+                reportContent.AppendLine($"CONTRACT CLAIM MANAGEMENT SYSTEM - {reportTitle.ToUpper()}");
+                reportContent.AppendLine("=".PadRight(60, '='));
+                reportContent.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm}");
+                reportContent.AppendLine($"Total Claims in Report: {claims.Count}");
+                reportContent.AppendLine($"Total Amount: R {claims.Sum(c => c.TotalAmount):#,##0.00}");
+                reportContent.AppendLine();
+
+                // Summary by status
+                var statusSummary = claims
+                    .GroupBy(c => c.Status)
+                    .Select(g => new { Status = g.Key, Count = g.Count(), Amount = g.Sum(c => c.TotalAmount) })
+                    .ToList();
+
+                reportContent.AppendLine("SUMMARY BY STATUS:");
+                reportContent.AppendLine("-".PadRight(40, '-'));
+                foreach (var summary in statusSummary)
+                {
+                    reportContent.AppendLine($"{summary.Status}: {summary.Count} claims, R {summary.Amount:#,##0.00}");
+                }
+                reportContent.AppendLine();
+
+                // Summary by department
+                var deptSummary = claims
+                    .Where(c => c.User != null)
+                    .GroupBy(c => c.User.Department ?? "Unknown")
+                    .Select(g => new { Department = g.Key, Count = g.Count(), Amount = g.Sum(c => c.TotalAmount) })
+                    .OrderByDescending(g => g.Amount)
+                    .ToList();
+
+                if (deptSummary.Any())
+                {
+                    reportContent.AppendLine("SUMMARY BY DEPARTMENT:");
+                    reportContent.AppendLine("-".PadRight(40, '-'));
+                    foreach (var dept in deptSummary)
+                    {
+                        reportContent.AppendLine($"{dept.Department}: {dept.Count} claims, R {dept.Amount:#,##0.00}");
+                    }
+                    reportContent.AppendLine();
+                }
+
+                // Detailed claim listing
+                reportContent.AppendLine("DETAILED CLAIM LISTING:");
+                reportContent.AppendLine("-".PadRight(80, '-'));
+
+                int counter = 1;
+                foreach (var claim in claims.OrderByDescending(c => c.SubmittedDate))
+                {
+                    reportContent.AppendLine($"{counter}. Claim #{claim.Id}");
+                    reportContent.AppendLine($"   Lecturer: {claim.LecturerName}");
+                    reportContent.AppendLine($"   Month: {claim.Month}");
+                    reportContent.AppendLine($"   Hours: {claim.HoursWorked:#0.00} @ R {claim.HourlyRate:#0.00}/hr");
+                    reportContent.AppendLine($"   Amount: R {claim.TotalAmount:#,##0.00}");
+                    reportContent.AppendLine($"   Status: {claim.Status}");
+                    reportContent.AppendLine($"   Submitted: {claim.SubmittedDate:yyyy-MM-dd}");
+
+                    if (!string.IsNullOrEmpty(claim.AdditionalNotes))
+                    {
+                        reportContent.AppendLine($"   Notes: {claim.AdditionalNotes}");
+                    }
+
+                    reportContent.AppendLine();
+                    counter++;
+                }
+
+                reportContent.AppendLine();
+                reportContent.AppendLine("END OF REPORT");
+                reportContent.AppendLine($"Total Records: {claims.Count}");
+                reportContent.AppendLine($"Report Generated By: HR System");
+                reportContent.AppendLine($"Generation Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+                return Encoding.UTF8.GetBytes(reportContent.ToString());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating PDF report: {ex.Message}");
+                // Return a basic error report
+                var errorContent = $"Error generating report: {ex.Message}\nPlease try again or contact system administrator.";
+                return Encoding.UTF8.GetBytes(errorContent);
+            }
         }
 
         public async Task<bool> DeleteUserAsync(string userId)
@@ -169,7 +272,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 // Check if user has any claims before deleting
                 var userClaims = await _context.Claims.Where(c => c.UserId == userId).ToListAsync();
                 if (userClaims.Any())
-                {                    
+                {
                     return false;
                 }
 
@@ -207,7 +310,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 return (false, ex.Message);
             }
         }
-        
+
         public async Task<bool> ToggleUserStatusAsync(string userId, bool isActive)
         {
             try

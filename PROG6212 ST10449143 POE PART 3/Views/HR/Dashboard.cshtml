@@ -188,16 +188,23 @@
 
 @section Scripts {
     <script>
-        // Load dashboard stats
+        // Load dashboard stats from server
         async function loadDashboardStats() {
             try {
-                // Simulate API calls - in real implementation, you'd have API endpoints
-                document.getElementById('totalUsers').textContent = '25';
-                document.getElementById('pendingClaims').textContent = '8';
-                document.getElementById('approvedClaims').textContent = '12';
-                document.getElementById('totalAmount').textContent = 'R 45,230.00';
+                const response = await fetch('@Url.Action("GetDashboardStats", "HR")');
+                const data = await response.json();
+
+                document.getElementById('totalUsers').textContent = data.totalUsers;
+                document.getElementById('pendingClaims').textContent = data.pendingClaims;
+                document.getElementById('approvedClaims').textContent = data.approvedClaims;
+                document.getElementById('totalAmount').textContent = 'R ' + data.totalAmount.toLocaleString('en-ZA', {minimumFractionDigits: 2});
             } catch (error) {
                 console.error('Error loading dashboard stats:', error);
+                // Fallback to loading indicators
+                document.getElementById('totalUsers').textContent = 'Error';
+                document.getElementById('pendingClaims').textContent = 'Error';
+                document.getElementById('approvedClaims').textContent = 'Error';
+                document.getElementById('totalAmount').textContent = 'Error';
             }
         }
 

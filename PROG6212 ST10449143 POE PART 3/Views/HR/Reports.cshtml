@@ -11,6 +11,22 @@
         </h1>
     </div>
 
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <div class="row">
         <div class="col-lg-4">
             <div class="card shadow border-0">
@@ -36,13 +52,13 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label asp-for="StartDate" class="form-label fw-semibold">Start Date</label>
-                                <input asp-for="StartDate" type="date" class="form-control" />
+                                <input asp-for="StartDate" type="date" class="form-control" id="StartDate" />
                                 <span asp-validation-for="StartDate" class="text-danger small"></span>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label asp-for="EndDate" class="form-label fw-semibold">End Date</label>
-                                <input asp-for="EndDate" type="date" class="form-control" />
+                                <input asp-for="EndDate" type="date" class="form-control" id="EndDate" />
                                 <span asp-validation-for="EndDate" class="text-danger small"></span>
                             </div>
                         </div>
@@ -57,6 +73,8 @@
                                 <option value="Mathematics">Mathematics</option>
                                 <option value="Physics">Physics</option>
                                 <option value="Chemistry">Chemistry</option>
+                                <option value="Human Resources">Human Resources</option>
+                                <option value="Academic Affairs">Academic Affairs</option>
                             </select>
                         </div>
 
@@ -91,7 +109,7 @@
                         <div class="col-md-3 mb-3">
                             <div class="card bg-primary text-white">
                                 <div class="card-body">
-                                    <h3>@ViewBag.TotalClaims</h3>
+                                    <h3>@(ViewBag.TotalClaims ?? 0)</h3>
                                     <small>Total Claims</small>
                                 </div>
                             </div>
@@ -99,7 +117,7 @@
                         <div class="col-md-3 mb-3">
                             <div class="card bg-success text-white">
                                 <div class="card-body">
-                                    <h3>@ViewBag.ApprovedClaims</h3>
+                                    <h3>@(ViewBag.ApprovedClaims ?? 0)</h3>
                                     <small>Approved</small>
                                 </div>
                             </div>
@@ -107,7 +125,7 @@
                         <div class="col-md-3 mb-3">
                             <div class="card bg-warning text-white">
                                 <div class="card-body">
-                                    <h3>@ViewBag.PendingClaims</h3>
+                                    <h3>@(ViewBag.PendingClaims ?? 0)</h3>
                                     <small>Pending</small>
                                 </div>
                             </div>
@@ -115,27 +133,55 @@
                         <div class="col-md-3 mb-3">
                             <div class="card bg-danger text-white">
                                 <div class="card-body">
-                                    <h3>R @ViewBag.TotalAmount</h3>
+                                    <h3>R @(ViewBag.TotalAmount ?? "0.00")</h3>
                                     <small>Total Amount</small>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Additional Statistics -->
+                    <div class="row text-center mt-3">
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-secondary text-white">
+                                <div class="card-body">
+                                    <h4>@(ViewBag.TotalUsers ?? 0)</h4>
+                                    <small>Total Users</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-dark text-white">
+                                <div class="card-body">
+                                    <h4>@(ViewBag.RejectedClaims ?? 0)</h4>
+                                    <small>Rejected</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h4>@(ViewBag.AverageClaimAmount ?? "0.00")</h4>
+                                    <small>Avg Claim</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mt-4">
-                        <h6>Recent Report Templates</h6>
+                        <h6>Quick Report Templates</h6>
                         <div class="list-group">
-                            <a href="#" class="list-group-item list-group-item-action">
+                            <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="generateQuickReport('monthly')">
                                 <i class="fas fa-file-pdf text-danger me-2"></i>
                                 <strong>Monthly Claims Report - @DateTime.Now.ToString("MMMM yyyy")</strong>
                                 <small class="text-muted d-block">Summary of all claims for current month</small>
                             </a>
-                            <a href="#" class="list-group-item list-group-item-action">
+                            <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="generateQuickReport('department')">
                                 <i class="fas fa-file-excel text-success me-2"></i>
                                 <strong>Department Performance Report</strong>
                                 <small class="text-muted d-block">Claims analysis by department</small>
                             </a>
-                            <a href="#" class="list-group-item list-group-item-action">
+                            <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="generateQuickReport('approved')">
                                 <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
                                 <strong>Payment Processing Report</strong>
                                 <small class="text-muted d-block">Approved claims ready for payment</small>
@@ -160,7 +206,10 @@
             document.getElementById('EndDate').value = formatDate(lastDay);
 
             function formatDate(date) {
-                return date.toISOString().split('T')[0];
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
             }
 
             // Form validation
@@ -174,5 +223,46 @@
                 return true;
             });
         });
+
+        function generateQuickReport(type) {
+            const form = document.getElementById('reportForm');
+
+            switch(type) {
+                case 'monthly':
+                    document.getElementById('ReportType').value = 'Monthly';
+                    // Dates are already set to current month by default
+                    document.getElementById('Department').value = '';
+                    document.getElementById('Status').value = '';
+                    break;
+                case 'department':
+                    document.getElementById('ReportType').value = 'Department';
+                    // Set date range to last 3 months
+                    const today = new Date();
+                    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+                    document.getElementById('StartDate').value = formatDate(threeMonthsAgo);
+                    document.getElementById('EndDate').value = formatDate(today);
+                    document.getElementById('Department').value = '';
+                    document.getElementById('Status').value = '';
+                    break;
+                case 'approved':
+                    document.getElementById('ReportType').value = 'All';
+                    // Set date range to current year
+                    const yearStart = new Date(today.getFullYear(), 0, 1);
+                    document.getElementById('StartDate').value = formatDate(yearStart);
+                    document.getElementById('EndDate').value = formatDate(today);
+                    document.getElementById('Department').value = '';
+                    document.getElementById('Status').value = 'Approved';
+                    break;
+            }
+
+            form.submit();
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
     </script>
 }
