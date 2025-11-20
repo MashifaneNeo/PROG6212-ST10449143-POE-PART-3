@@ -26,6 +26,15 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
+// Add session support
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
@@ -37,6 +46,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<IClaimService, DatabaseClaimService>();
 builder.Services.AddScoped<IHRService, HRService>();
 builder.Services.AddScoped<DocumentValidator>();
+builder.Services.AddScoped<IClaimAutomationService, ClaimAutomationService>();
 
 var app = builder.Build();
 
@@ -51,6 +61,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseSession(); // Add session middleware
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -69,8 +80,8 @@ using (var scope = app.Services.CreateScope())
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<User>>();
 
-        // Create roles
-        string[] roleNames = { "HR", "Lecturer", "Coordinator" };
+        // Create roles - UPDATED WITH NEW ROLES
+        string[] roleNames = { "HR", "Lecturer", "Coordinator", "AcademicManager" };
         foreach (var roleName in roleNames)
         {
             if (!await roleManager.RoleExistsAsync(roleName))
@@ -131,6 +142,52 @@ using (var scope = app.Services.CreateScope())
             else
             {
                 Console.WriteLine($"Failed to create lecturer: {string.Join(", ", createLecturer.Errors.Select(e => e.Description))}");
+            }
+        }
+
+        // Create sample Programme Coordinator
+        var coordinatorUser = new User
+        {
+            FirstName = "Sarah",
+            LastName = "Johnson",
+            UserName = "sarah.johnson@university.ac.za",
+            Email = "sarah.johnson@university.ac.za",
+            HourlyRate = 0,
+            EmployeeId = "COORD001",
+            Department = "Computer Science"
+        };
+
+        var coordinatorExists = await userManager.FindByEmailAsync(coordinatorUser.Email);
+        if (coordinatorExists == null)
+        {
+            var createCoordinator = await userManager.CreateAsync(coordinatorUser, "Coordinator123!");
+            if (createCoordinator.Succeeded)
+            {
+                await userManager.AddToRoleAsync(coordinatorUser, "Coordinator");
+                Console.WriteLine("Sample coordinator created successfully!");
+            }
+        }
+
+        // Create sample Academic Manager
+        var managerUser = new User
+        {
+            FirstName = "David",
+            LastName = "Wilson",
+            UserName = "david.wilson@university.ac.za",
+            Email = "david.wilson@university.ac.za",
+            HourlyRate = 0,
+            EmployeeId = "MGR001",
+            Department = "Academic Affairs"
+        };
+
+        var managerExists = await userManager.FindByEmailAsync(managerUser.Email);
+        if (managerExists == null)
+        {
+            var createManager = await userManager.CreateAsync(managerUser, "Manager123!");
+            if (createManager.Succeeded)
+            {
+                await userManager.AddToRoleAsync(managerUser, "AcademicManager");
+                Console.WriteLine("Sample academic manager created successfully!");
             }
         }
     }

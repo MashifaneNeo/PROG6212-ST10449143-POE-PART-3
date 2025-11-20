@@ -115,9 +115,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
         [HttpGet]
         public async Task<IActionResult> AutomatedProcessing()
-        {           
+        {
             var pendingClaims = await _context.Claims
-                .Where(c => c.Status == "Under Review" && c.HoursWorked <= 160) 
+                .Where(c => c.Status == "Under Review" && c.HoursWorked <= 160)
                 .ToListAsync();
 
             foreach (var claim in pendingClaims)
