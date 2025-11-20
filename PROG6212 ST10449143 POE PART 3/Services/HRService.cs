@@ -13,6 +13,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         Task<User> GetUserByIdAsync(string id);
         Task<List<Claim>> GetClaimsForReportAsync(ReportFilterViewModel filters);
         Task<byte[]> GeneratePdfReportAsync(List<Claim> claims, string reportTitle);
+        Task<bool> DeleteUserAsync(string userId);
+        Task<(bool Success, string Error)> ResetPasswordAsync(string userId, string newPassword);
+        Task<bool> ToggleUserStatusAsync(string userId, bool isActive);
     }
 
     public class HRService : IHRService
@@ -41,25 +44,44 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     UserName = model.Email,
                     Email = model.Email,
                     HourlyRate = model.HourlyRate,
-                    EmployeeId = model.EmployeeId,
-                    Department = model.Department
+                    EmployeeId = model.EmployeeId ?? string.Empty,
+                    Department = model.Department ?? string.Empty,
+                    DateCreated = DateTime.Now, 
+                    IsActive = true 
                 };
+
+                Console.WriteLine($"Creating user: {user.FirstName} {user.LastName}, Email: {user.Email}");
+                Console.WriteLine($"EmployeeId: {user.EmployeeId}, Department: {user.Department}");
+                Console.WriteLine($"HourlyRate: {user.HourlyRate}, IsActive: {user.IsActive}");
 
                 var result = await _userManager.CreateAsync(user, tempPassword);
 
                 if (result.Succeeded)
-                {                    
+                {
                     await _userManager.AddToRoleAsync(user, "Lecturer");
+                    Console.WriteLine($"User created successfully with ID: {user.Id}");
                     return (true, tempPassword, null);
                 }
 
-                return (false, null, string.Join(", ", result.Errors.Select(e => e.Description)));
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                Console.WriteLine($"UserManager errors: {errors}");
+                return (false, null, errors);
             }
             catch (Exception ex)
             {
-                return (false, null, ex.Message);
+                var errorMessage = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $" | Inner Exception: {ex.InnerException.Message}";
+                }
+
+                Console.WriteLine($"Exception in CreateUserAsync: {errorMessage}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                return (false, null, errorMessage);
             }
         }
+        
 
         public async Task<bool> UpdateUserAsync(UpdateUserViewModel model)
         {
@@ -136,6 +158,73 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
 
             return System.Text.Encoding.UTF8.GetBytes(reportContent);
         }
+
+        public async Task<bool> DeleteUserAsync(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null) return false;
+
+                // Check if user has any claims before deleting
+                var userClaims = await _context.Claims.Where(c => c.UserId == userId).ToListAsync();
+                if (userClaims.Any())
+                {                    
+                    return false;
+                }
+
+                var result = await _userManager.DeleteAsync(user);
+                return result.Succeeded;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public async Task<(bool Success, string Error)> ResetPasswordAsync(string userId, string newPassword)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null) return (false, "User not found");
+
+                // Generate reset token and reset password
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var result = await _userManager.ResetPasswordAsync(user, resetToken, newPassword);
+
+                if (result.Succeeded)
+                {
+                    return (true, null);
+                }
+                else
+                {
+                    return (false, string.Join(", ", result.Errors.Select(e => e.Description)));
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
+        }
+        
+        public async Task<bool> ToggleUserStatusAsync(string userId, bool isActive)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null) return false;
+
+                user.IsActive = isActive;
+                var result = await _userManager.UpdateAsync(user);
+                return result.Succeeded;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
 
         private string GenerateTemporaryPassword()
         {

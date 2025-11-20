@@ -189,6 +189,22 @@ using (var scope = app.Services.CreateScope())
                 await userManager.AddToRoleAsync(managerUser, "AcademicManager");
                 Console.WriteLine("Sample academic manager created successfully!");
             }
+            else
+            {
+                // Log the specific errors
+                Console.WriteLine($"Failed to create academic manager: {string.Join(", ", createManager.Errors.Select(e => e.Description))}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Academic Manager user already exists");
+
+            // Ensure the existing user has the correct role
+            if (!await userManager.IsInRoleAsync(managerExists, "AcademicManager"))
+            {
+                await userManager.AddToRoleAsync(managerExists, "AcademicManager");
+                Console.WriteLine("Added AcademicManager role to existing user");
+            }
         }
     }
     catch (Exception ex)

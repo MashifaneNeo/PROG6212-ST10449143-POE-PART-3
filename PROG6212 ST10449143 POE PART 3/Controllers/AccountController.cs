@@ -31,36 +31,60 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
             if (ModelState.IsValid)
             {
+                Console.WriteLine($"=== LOGIN ATTEMPT ===");
+                Console.WriteLine($"Email: {model.Email}");
+                Console.WriteLine($"Password Length: {model.Password?.Length}");
+
                 var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
+
+                Console.WriteLine($"Login Result: {result.Succeeded}");
+
                 if (result.Succeeded)
                 {
+                    Console.WriteLine($"Login successful for: {model.Email}");
+
                     if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
                     {
                         return Redirect(returnUrl);
                     }
 
                     var user = await _userManager.FindByEmailAsync(model.Email);
-                    if (await _userManager.IsInRoleAsync(user, "HR"))
+                    Console.WriteLine($"User found: {user != null}");
+
+                    if (user != null)
                     {
-                        return RedirectToAction("Dashboard", "HR");
-                    }
-                    else if (await _userManager.IsInRoleAsync(user, "Lecturer"))
-                    {
-                        return RedirectToAction("Submit", "Claims");
-                    }
-                    else if (await _userManager.IsInRoleAsync(user, "Coordinator"))
-                    {
-                        return RedirectToAction("Approvals", "Claims");
+                        var roles = await _userManager.GetRolesAsync(user);
+                        Console.WriteLine($"User roles: {string.Join(", ", roles)}");
+
+                        if (await _userManager.IsInRoleAsync(user, "HR"))
+                        {
+                            return RedirectToAction("Dashboard", "HR");
+                        }
+                        else if (await _userManager.IsInRoleAsync(user, "Lecturer"))
+                        {
+                            return RedirectToAction("Submit", "Claims");
+                        }
+                        else if (await _userManager.IsInRoleAsync(user, "Coordinator"))
+                        {
+                            return RedirectToAction("Approvals", "Claims");
+                        }
+                        else if (await _userManager.IsInRoleAsync(user, "AcademicManager"))
+                        {
+                            return RedirectToAction("AcademicManagerDashboard", "Claims");
+                        }
                     }
 
                     return RedirectToAction("Index", "Home");
                 }
                 else
                 {
-                    ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+                    Console.WriteLine($"Login failed for: {model.Email}");
+                    ModelState.AddModelError(string.Empty, "Invalid login attempt. Please check your credentials.");
                     return View(model);
                 }
             }
+
+            Console.WriteLine($"Model state invalid: {string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))}");
             return View(model);
         }
 

@@ -55,6 +55,10 @@
                             {
                                 <tr>
                                     <td>@claim.Id</td>
+                                    <td>
+                                        <!-- FIXED: Display Lecturer Name from the claim -->
+                                        @claim.LecturerName
+                                    </td>
                                     <td>@claim.Month</td>
                                     <td>@claim.HoursWorked.ToString("0.00")</td>
                                     <td>R @claim.HourlyRate.ToString("0.00")</td>

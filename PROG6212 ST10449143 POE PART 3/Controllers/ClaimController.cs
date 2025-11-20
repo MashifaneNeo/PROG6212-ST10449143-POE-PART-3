@@ -138,6 +138,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     var claim = new Claim
                     {
                         UserId = currentUser.Id,
+                        LecturerName = $"{currentUser.FirstName} {currentUser.LastName}",
                         Month = model.Month,
                         HoursWorked = model.HoursWorked,
                         HourlyRate = currentUser.HourlyRate,
@@ -326,29 +327,38 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 return RedirectToAction("AccessDenied", "Account");
             }
 
+            // FIXED: First get the data from database, then sort in memory
             var claims = await _context.Claims
                 .Include(c => c.User)
                 .Where(c => c.Status == "Under Review" || c.Status == "Submitted")
-                .OrderByDescending(c => c.HoursWorked)
-                .ThenByDescending(c => c.TotalAmount)
-                .ToListAsync();
+                .ToListAsync(); // Get data from database first
 
-            var highValueClaims = claims.Where(c => c.TotalAmount > 10000).ToList();
-            var departmentSummary = claims.GroupBy(c => c.User.Department)
+            // Now sort in memory (client-side)
+            var sortedClaims = claims
+                .OrderByDescending(c => c.HoursWorked)
+                .ThenByDescending(c => c.TotalAmount) // This works now because we're in memory
+                .ToList();
+
+            var highValueClaims = sortedClaims.Where(c => c.TotalAmount > 10000).ToList();
+
+            // Calculate department summaries in memory
+            var departmentSummary = sortedClaims
+                .GroupBy(c => c.User?.Department ?? "Unknown")
                 .Select(g => new DepartmentSummary
                 {
-                    Department = g.Key ?? "Unknown",
+                    Department = g.Key,
                     TotalClaims = g.Count(),
                     TotalAmount = g.Sum(c => c.TotalAmount),
                     AverageHours = g.Average(c => c.HoursWorked)
-                }).ToList();
+                })
+                .ToList();
 
             var managerModel = new AcademicManagerDashboardViewModel
             {
-                AllPendingClaims = claims,
+                AllPendingClaims = sortedClaims,
                 HighValueClaims = highValueClaims,
                 DepartmentSummaries = departmentSummary,
-                TotalPendingAmount = claims.Sum(c => c.TotalAmount),
+                TotalPendingAmount = sortedClaims.Sum(c => c.TotalAmount),
                 AutomationEfficiency = CalculateAutomationEfficiency()
             };
 

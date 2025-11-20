@@ -1,7 +1,4 @@
-﻿@{
-    Layout = null;
-}
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8" />
@@ -14,60 +11,99 @@
             padding: 0;
             display: flex;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .sidebar {
-            width: 250px;
+            width: 280px; /* Slightly wider for better readability */
             background: linear-gradient(180deg, #2C3E50 0%, #1a252f 100%);
             height: 100vh;
             padding: 20px 15px;
             color: white;
             position: fixed;
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* Enable vertical scrolling */
         }
 
-            .sidebar h2 {
-                text-align: center;
-                font-weight: bold;
-                margin-bottom: 30px;
-                color: #1ABC9C;
-                font-size: 1.5rem;
-                padding-bottom: 15px;
-                border-bottom: 2px solid #34495E;
+        .sidebar-header {
+            flex-shrink: 0; /* Prevent header from shrinking */
+            padding-bottom: 20px;
+            border-bottom: 2px solid #34495E;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-content {
+            flex: 1; /* Take remaining space */
+            overflow-y: auto; /* Enable scrolling for content */
+            padding-right: 10px; /* Space for scrollbar */
+        }
+
+            /* Custom scrollbar for sidebar */
+            .sidebar-content::-webkit-scrollbar {
+                width: 6px;
             }
 
-            .sidebar a {
-                display: flex;
-                align-items: center;
-                margin: 12px 0;
-                padding: 12px 15px;
+            .sidebar-content::-webkit-scrollbar-track {
                 background: #34495E;
-                color: white;
-                text-decoration: none;
-                border-radius: 8px;
-                transition: all 0.3s ease;
-                font-weight: 500;
+                border-radius: 3px;
             }
 
-                .sidebar a:hover {
-                    background: #1ABC9C;
-                    transform: translateX(5px);
-                    text-decoration: none;
-                    color: white;
+            .sidebar-content::-webkit-scrollbar-thumb {
+                background: #1ABC9C;
+                border-radius: 3px;
+            }
+
+                .sidebar-content::-webkit-scrollbar-thumb:hover {
+                    background: #16A085;
                 }
 
-                .sidebar a i {
-                    margin-right: 10px;
-                    width: 20px;
-                    text-align: center;
-                }
+        .sidebar h2 {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 0;
+            color: #1ABC9C;
+            font-size: 1.5rem;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 12px 15px;
+            background: #34495E;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+
+            .sidebar a:hover {
+                background: #1ABC9C;
+                transform: translateX(5px);
+                text-decoration: none;
+                color: white;
+                border-color: #16A085;
+            }
+
+            .sidebar a i {
+                margin-right: 12px;
+                width: 20px;
+                text-align: center;
+                font-size: 1.1em;
+            }
 
         .content {
             flex: 1;
             padding: 30px;
             background: #f8f9fa;
-            margin-left: 250px;
+            margin-left: 280px; /* Match sidebar width */
             min-height: 100vh;
+            overflow-y: auto; /* Enable scrolling for main content */
         }
 
         .navbar {
@@ -75,161 +111,243 @@
             padding: 1rem 0;
             margin-bottom: 2rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 10px;
         }
 
         .user-dropdown {
             background: #34495E;
             border: none;
             color: white;
+            transition: all 0.3s ease;
         }
 
             .user-dropdown:hover {
                 background: #1ABC9C;
+                transform: translateY(-2px);
             }
 
         .dropdown-menu {
             background: #2C3E50;
             border: 1px solid #34495E;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
         .dropdown-item {
             color: white;
+            transition: all 0.2s ease;
         }
 
             .dropdown-item:hover {
                 background: #1ABC9C;
                 color: white;
+                transform: translateX(5px);
             }
 
-        .hr-section {
-            border-top: 2px solid #1ABC9C;
-            margin-top: 20px;
+        .hr-section, .coordinator-section, .manager-section {
+            margin-top: 25px;
             padding-top: 20px;
+            border-top: 2px solid;
+        }
+
+        .hr-section {
+            border-top-color: #1ABC9C;
         }
 
         .coordinator-section {
-            border-top: 2px solid #F39C12;
-            margin-top: 20px;
-            padding-top: 20px;
+            border-top-color: #F39C12;
         }
 
         .manager-section {
-            border-top: 2px solid #9B59B6;
-            margin-top: 20px;
-            padding-top: 20px;
+            border-top-color: #9B59B6;
         }
 
-            .hr-section h6,
-            .coordinator-section h6,
-            .manager-section h6 {
-                font-size: 0.9rem;
+            .hr-section h6, .coordinator-section h6, .manager-section h6 {
+                font-size: 0.85rem;
                 margin-bottom: 15px;
                 text-transform: uppercase;
                 letter-spacing: 1px;
+                font-weight: 600;
+                padding: 5px 10px;
+                border-radius: 5px;
+                display: inline-block;
             }
 
         .hr-section h6 {
             color: #1ABC9C;
+            background: rgba(26, 188, 156, 0.1);
         }
 
         .coordinator-section h6 {
             color: #F39C12;
+            background: rgba(243, 156, 18, 0.1);
         }
 
         .manager-section h6 {
             color: #9B59B6;
+            background: rgba(155, 89, 182, 0.1);
+        }
+
+        /* Role-specific icon colors */
+        .hr-section a i {
+            color: #1ABC9C;
+        }
+
+        .coordinator-section a i {
+            color: #F39C12;
+        }
+
+        .manager-section a i {
+            color: #9B59B6;
+        }
+
+        /* Active link styling */
+        .sidebar a.active {
+            background: #1ABC9C;
+            border-color: #16A085;
+            box-shadow: 0 2px 8px rgba(26, 188, 156, 0.3);
+        }
+
+        /* Responsive design */
+        @@media (max-width: 768px) {
+            .sidebar {
+                width: 250px;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                z-index: 1000;
+            }
+
+                .sidebar.mobile-open {
+                    transform: translateX(0);
+                }
+
+            .content {
+                margin-left: 0;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+                position: fixed;
+                top: 15px;
+                left: 15px;
+                z-index: 1001;
+                background: #2C3E50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h2>
-            <i class="fas fa-file-contract me-2"></i>CMCS
-        </h2>
+    <!-- Mobile Menu Button (hidden on desktop) -->
+    <button class="mobile-menu-btn d-lg-none" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
 
-        <a asp-controller="Home" asp-action="Index">
-            <i class="fas fa-home"></i>Home
-        </a>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>
+                <i class="fas fa-file-contract me-2"></i>CMCS
+            </h2>
+        </div>
 
-        @if (User.Identity.IsAuthenticated)
-        {
-            <!-- Lecturer & General User Features -->
-            <a asp-controller="Claims" asp-action="Submit">
-                <i class="fas fa-file-invoice-dollar"></i>Submit Claim
-            </a>
-            <a asp-controller="Claims" asp-action="TrackStatus">
-                <i class="fas fa-tasks"></i>Track Status
+        <div class="sidebar-content">
+            <a asp-controller="Home" asp-action="Index" class="nav-link">
+                <i class="fas fa-home"></i>Home
             </a>
 
-            <!-- Coordinator & Academic Manager Automation Features -->
-            @if (User.IsInRole("Coordinator") || User.IsInRole("AcademicManager"))
+            @if (User.Identity.IsAuthenticated)
             {
-                <div class="coordinator-section">
-                    <h6>Automation Tools</h6>
-                    <a asp-controller="Claims" asp-action="CoordinatorDashboard">
-                        <i class="fas fa-robot"></i>Automation Dashboard
-                    </a>
-                    <a asp-controller="Claims" asp-action="AcademicManagerDashboard">
-                        <i class="fas fa-user-tie"></i>Manager Oversight
-                    </a>
-                    <a asp-controller="Claims" asp-action="Approvals">
-                        <i class="fas fa-check-circle"></i>Manual Approvals
-                    </a>
-                </div>
-            }
-
-            <!-- Coordinator & HR Features -->
-            @if (User.IsInRole("Coordinator") || User.IsInRole("HR"))
-            {
-                <a asp-controller="Claims" asp-action="ViewClaims">
+                <!-- Lecturer & General User Features -->
+                <a asp-controller="Claims" asp-action="Submit" class="nav-link">
+                    <i class="fas fa-file-invoice-dollar"></i>Submit Claim
+                </a>
+                <a asp-controller="Claims" asp-action="TrackStatus" class="nav-link">
+                    <i class="fas fa-tasks"></i>Track Status
+                </a>
+                <a asp-controller="Claims" asp-action="ViewClaims" class="nav-link">
                     <i class="fas fa-list-alt"></i>View Claims
                 </a>
-            }
 
-            <!-- HR Only Features -->
-            @if (User.IsInRole("HR"))
-            {
-                <div class="hr-section">
-                    <h6>HR Management</h6>
-                    <a asp-controller="HR" asp-action="Dashboard">
-                        <i class="fas fa-tachometer-alt"></i>HR Dashboard
-                    </a>
-                    <a asp-controller="HR" asp-action="UserManagement">
-                        <i class="fas fa-users"></i>User Management
-                    </a>
-                    <a asp-controller="HR" asp-action="CreateUser">
-                        <i class="fas fa-user-plus"></i>Create User
-                    </a>
-                    <a asp-controller="HR" asp-action="Reports">
-                        <i class="fas fa-chart-bar"></i>Reports
-                    </a>
-                    <a asp-controller="HR" asp-action="AutomatedProcessing">
-                        <i class="fas fa-robot"></i>Auto-Process
-                    </a>
-                </div>
-            }
+                <!-- Coordinator & Academic Manager Automation Features -->
+                @if (User.IsInRole("Coordinator") || User.IsInRole("AcademicManager"))
+                {
+                    <div class="coordinator-section">
+                        <h6>Automation Tools</h6>
+                        <a asp-controller="Claims" asp-action="CoordinatorDashboard" class="nav-link">
+                            <i class="fas fa-robot"></i>Automation Dashboard
+                        </a>
+                        <a asp-controller="Claims" asp-action="AcademicManagerDashboard" class="nav-link">
+                            <i class="fas fa-user-tie"></i>Manager Oversight
+                        </a>
+                        <a asp-controller="Claims" asp-action="Approvals" class="nav-link">
+                            <i class="fas fa-check-circle"></i>Manual Approvals
+                        </a>
+                    </div>
+                }
 
-            <!-- Academic Manager Only Features -->
-            @if (User.IsInRole("AcademicManager"))
-            {
-                <div class="manager-section">
-                    <h6>Executive Oversight</h6>
-                    <a asp-controller="Claims" asp-action="AcademicManagerDashboard">
-                        <i class="fas fa-chart-line"></i>Performance Analytics
-                    </a>
-                    <a asp-controller="HR" asp-action="Reports">
-                        <i class="fas fa-file-pdf"></i>Advanced Reports
-                    </a>
-                </div>
+                <!-- HR Only Features -->
+                @if (User.IsInRole("HR"))
+                {
+                    <div class="hr-section">
+                        <h6>HR Management</h6>
+                        <a asp-controller="HR" asp-action="Dashboard" class="nav-link">
+                            <i class="fas fa-tachometer-alt"></i>HR Dashboard
+                        </a>
+                        <a asp-controller="HR" asp-action="UserManagement" class="nav-link">
+                            <i class="fas fa-users"></i>User Management
+                        </a>
+                        <a asp-controller="HR" asp-action="CreateUser" class="nav-link">
+                            <i class="fas fa-user-plus"></i>Create User
+                        </a>
+                        <a asp-controller="HR" asp-action="Reports" class="nav-link">
+                            <i class="fas fa-chart-bar"></i>Reports
+                        </a>
+                        <a asp-controller="HR" asp-action="AutomatedProcessing" class="nav-link">
+                            <i class="fas fa-robot"></i>Auto-Process
+                        </a>
+                    </div>
+                }
+
+                <!-- Academic Manager Only Features -->
+                @if (User.IsInRole("AcademicManager"))
+                {
+                    <div class="manager-section">
+                        <h6>Executive Oversight</h6>
+                        <a asp-controller="Claims" asp-action="AcademicManagerDashboard" class="nav-link">
+                            <i class="fas fa-chart-line"></i>Performance Analytics
+                        </a>
+                        <a asp-controller="HR" asp-action="Reports" class="nav-link">
+                            <i class="fas fa-file-pdf"></i>Advanced Reports
+                        </a>
+                        <a asp-controller="Claims" asp-action="ViewClaims" class="nav-link">
+                            <i class="fas fa-search"></i>Audit Claims
+                        </a>
+                    </div>
+                }
+
+                <!-- Coordinator Only Features -->
+                @if (User.IsInRole("Coordinator"))
+                {
+                    <div class="coordinator-section">
+                        <h6>Coordinator Tools</h6>
+                        <a asp-controller="Claims" asp-action="Approvals" class="nav-link">
+                            <i class="fas fa-clipboard-check"></i>Review Claims
+                        </a>
+                        <a asp-controller="Claims" asp-action="CoordinatorDashboard" class="nav-link">
+                            <i class="fas fa-cogs"></i>Automation Settings
+                        </a>
+                    </div>
+                }
             }
-        }
-        else
-        {
-            <!-- Public Navigation (when not logged in) -->
-            <a asp-controller="Account" asp-action="Login">
-                <i class="fas fa-sign-in-alt"></i>Login
-            </a>
-        }
+            else
+            {
+                <a asp-controller="Account" asp-action="Login" class="nav-link">
+                    <i class="fas fa-sign-in-alt"></i>Login
+                </a>                
+            }
+        </div>
     </div>
 
     <div class="content">
@@ -294,6 +412,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const mobileBtn = document.querySelector('.mobile-menu-btn');
+
+            if (window.innerWidth <= 768 &&
+                !sidebar.contains(event.target) &&
+                !mobileBtn.contains(event.target)) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+
+        // Add active class to current page link
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUrl = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar a.nav-link');
+
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentUrl) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Auto-hide mobile sidebar on larger screens
+        window.addEventListener('resize', function() {
+            const sidebar = document.getElementById('sidebar');
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

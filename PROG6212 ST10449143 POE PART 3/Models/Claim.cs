@@ -10,6 +10,10 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         public int Id { get; set; }
 
         [Required]
+        [StringLength(100)]
+        public string LecturerName { get; set; } = string.Empty;
+
+        [Required]
         [StringLength(20)]
         public string Month { get; set; }
 
