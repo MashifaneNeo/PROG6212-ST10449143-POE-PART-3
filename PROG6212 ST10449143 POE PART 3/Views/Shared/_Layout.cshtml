@@ -297,10 +297,7 @@
                             <i class="fas fa-clipboard-check"></i>Review Claims
                         </a>
                         <a asp-controller="Claims" asp-action="CoordinatorDashboard" class="nav-link">
-                            <i class="fas fa-robot"></i>Automation Dashboard
-                        </a>
-                        <a asp-controller="Claims" asp-action="BulkAutomatedProcessing" class="nav-link">
-                            <i class="fas fa-play-circle"></i>Run Bulk Processing
+                            <i class="fas fa-tachometer-alt"></i>Coordinator Dashboard
                         </a>
                     </div>
                 }
@@ -460,13 +457,13 @@
                         sessionWarningShown = true;
                     }
                 }
-            }, 25 * 60 * 1000); 
+            }, 25 * 60 * 1000);
         }
 
         // Start session timeout check if user is authenticated
         @if (User.Identity.IsAuthenticated)
         {
-                <text>checkSessionTimeout();</text>
+                    <text>checkSessionTimeout();</text>
         }
     </script>
 

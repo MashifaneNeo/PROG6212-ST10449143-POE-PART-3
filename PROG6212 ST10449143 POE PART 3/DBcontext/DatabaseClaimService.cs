@@ -27,13 +27,23 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     throw new ArgumentException("Month is required for claim");
                 }
 
-                claim.Status ??= "Submitted";
+                // Set default values for ALL properties including workflow properties
+                claim.Status ??= "Under Review"; // Changed to "Under Review" for workflow
+                claim.CurrentStage ??= "CoordinatorReview";
                 claim.SubmittedDate = DateTime.Now;
                 claim.AdditionalNotes ??= string.Empty;
                 claim.SupportingDocument ??= string.Empty;
                 claim.RejectionReason ??= string.Empty;
 
-                Console.WriteLine($"Adding claim: UserId={claim.UserId}, Month={claim.Month}, Hours={claim.HoursWorked}, Rate={claim.HourlyRate}");
+                // Initialize workflow properties - they can be null now due to migration
+                claim.CoordinatorApprover ??= null;
+                claim.ManagerApprover ??= null;
+                claim.CoordinatorReviewDate ??= null;
+                claim.ManagerReviewDate ??= null;
+                claim.IsCoordinatorApproved = false;
+                claim.IsManagerApproved = false;
+
+                Console.WriteLine($"Adding claim: UserId={claim.UserId}, Month={claim.Month}, Stage={claim.CurrentStage}, Status={claim.Status}");
 
                 _context.Claims.Add(claim);
                 await _context.SaveChangesAsync();
@@ -51,6 +61,11 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     throw new Exception("Invalid user reference. Please ensure you are logged in correctly.");
                 }
 
+                if (dbEx.InnerException != null && dbEx.InnerException.Message.Contains("NOT NULL"))
+                {
+                    throw new Exception("Database constraint error. Some required fields are missing. Please check all claim properties.");
+                }
+
                 throw new Exception("Database error occurred while saving claim. Please try again.");
             }
             catch (Exception ex)
@@ -66,7 +81,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             try
             {
                 return await _context.Claims
-                    .Include(c => c.User) 
+                    .Include(c => c.User)
                     .OrderByDescending(c => c.SubmittedDate)
                     .ToListAsync();
             }
@@ -82,7 +97,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             try
             {
                 return await _context.Claims
-                    .Include(c => c.User) 
+                    .Include(c => c.User)
                     .FirstOrDefaultAsync(c => c.Id == id);
             }
             catch (Exception ex)
@@ -130,13 +145,49 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             {
                 return await _context.Claims
                     .Include(c => c.User)
-                    .Where(c => c.Status == "Under Review")
+                    .Where(c => c.Status == "Under Review" || c.Status == "Pending Manager Review")
                     .OrderByDescending(c => c.SubmittedDate)
                     .ToListAsync();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error getting pending claims from database: {ex.Message}");
+                return new List<Claim>();
+            }
+        }
+
+        // NEW METHOD: Get claims for coordinator review
+        public async Task<List<Claim>> GetClaimsForCoordinatorReviewAsync()
+        {
+            try
+            {
+                return await _context.Claims
+                    .Include(c => c.User)
+                    .Where(c => c.CurrentStage == "CoordinatorReview" && c.Status == "Under Review")
+                    .OrderBy(c => c.SubmittedDate)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting coordinator review claims: {ex.Message}");
+                return new List<Claim>();
+            }
+        }
+
+        // NEW METHOD: Get claims for manager review
+        public async Task<List<Claim>> GetClaimsForManagerReviewAsync()
+        {
+            try
+            {
+                return await _context.Claims
+                    .Include(c => c.User)
+                    .Where(c => c.CurrentStage == "ManagerReview" && c.IsCoordinatorApproved && !c.IsManagerApproved)
+                    .OrderBy(c => c.CoordinatorReviewDate)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting manager review claims: {ex.Message}");
                 return new List<Claim>();
             }
         }

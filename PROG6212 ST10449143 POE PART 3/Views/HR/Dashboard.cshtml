@@ -8,11 +8,6 @@
         <h1 class="display-6 text-primary">
             <i class="fas fa-users-cog me-2"></i>HR Dashboard
         </h1>
-        <div class="btn-group">
-            <a href="@Url.Action("AutomatedProcessing")" class="btn btn-success">
-                <i class="fas fa-robot me-1"></i>Run Auto-Processing
-            </a>
-        </div>
     </div>
 
     @if (TempData["SuccessMessage"] != null)
@@ -116,7 +111,7 @@
 
     <!-- Quick Actions -->
     <div class="row">
-        <div class="col-lg-4 mb-4">
+        <div class="col-lg-6 mb-4">
             <div class="card shadow border-0">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i>User Management</h5>
@@ -135,7 +130,7 @@
             </div>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div class="col-lg-6 mb-4">
             <div class="card shadow border-0">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Reports & Analytics</h5>
@@ -145,22 +140,6 @@
                     <div class="d-grid gap-2">
                         <a href="@Url.Action("Reports")" class="btn btn-outline-success">
                             <i class="fas fa-file-pdf me-1"></i>Generate Reports
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow border-0">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Automation</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Automate claim processing and administrative tasks to improve efficiency.</p>
-                    <div class="d-grid gap-2">
-                        <a href="@Url.Action("AutomatedProcessing")" class="btn btn-outline-info">
-                            <i class="fas fa-play me-1"></i>Run Auto-Processing
                         </a>
                     </div>
                 </div>

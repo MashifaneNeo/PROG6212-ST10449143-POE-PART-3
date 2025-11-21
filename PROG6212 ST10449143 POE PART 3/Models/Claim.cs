@@ -27,7 +27,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         [Column(TypeName = "decimal(10,2)")]
         public decimal HourlyRate { get; set; }
 
-        [NotMapped] 
+        [NotMapped]
         public decimal TotalAmount => HoursWorked * HourlyRate;
 
         [Column(TypeName = "nvarchar(500)")]
@@ -39,7 +39,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; } = "Submitted";
+        public string Status { get; set; } = "Under Review"; // Changed to "Under Review"
 
         public DateTime SubmittedDate { get; set; } = DateTime.Now;
 
@@ -51,16 +51,17 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         public virtual User? User { get; set; }
 
         [StringLength(50)]
-        public string CurrentStage { get; set; } = "CoordinatorReview"; 
+        public string CurrentStage { get; set; } = "CoordinatorReview";
 
-        public string CoordinatorReviewDate { get; set; }
-        public string ManagerReviewDate { get; set; }
+        public string? CoordinatorReviewDate { get; set; } // Made nullable
 
-        [StringLength(100)]
-        public string CoordinatorApprover { get; set; }
+        public string? ManagerReviewDate { get; set; } // Made nullable
 
         [StringLength(100)]
-        public string ManagerApprover { get; set; }
+        public string? CoordinatorApprover { get; set; } // Made nullable
+
+        [StringLength(100)]
+        public string? ManagerApprover { get; set; } // Made nullable
 
         // Add workflow tracking
         public bool IsCoordinatorApproved { get; set; } = false;
@@ -68,10 +69,12 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
 
         public Claim()
         {
-            Status ??= "Submitted";
+            Status ??= "Under Review"; // Updated to match workflow
+            CurrentStage ??= "CoordinatorReview";
             AdditionalNotes ??= string.Empty;
             SupportingDocument ??= string.Empty;
             RejectionReason ??= string.Empty;
+            // Workflow properties can remain null - that's fine now
         }
     }
 }

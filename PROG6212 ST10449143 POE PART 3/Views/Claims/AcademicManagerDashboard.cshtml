@@ -10,9 +10,6 @@
             <i class="fas fa-user-tie me-2"></i>Academic Manager Dashboard - Claim Oversight
         </h1>
         <div class="btn-group">
-            <a href="@Url.Action("CoordinatorDashboard")" class="btn btn-outline-primary">
-                <i class="fas fa-robot me-1"></i>Automation View
-            </a>
             <a href="@Url.Action("Reports", "HR")" class="btn btn-outline-success">
                 <i class="fas fa-chart-bar me-1"></i>Advanced Reports
             </a>
@@ -81,12 +78,12 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Auto-Approval Rate
+                                Claims Ready for Review
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.AutomationEfficiency.AutoApprovalRate.ToString("0.0")%</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.AllPendingClaims.Count(c => c.CurrentStage == "ManagerReview")</div>
                         </div>
                         <div class="col-auto">
-                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                            <i class="fas fa-clipboard-check fa-2x text-gray-300"></i>
                         </div>
                     </div>
                 </div>
@@ -129,43 +126,43 @@
             </div>
         </div>
 
-        <!-- Automation Efficiency -->
+        <!-- Workflow Status -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow border-0">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Automation Efficiency</h5>
+                    <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Workflow Status</h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-6 mb-3">
-                            <div class="card bg-success text-white">
+                            <div class="card bg-warning text-white">
                                 <div class="card-body py-3">
-                                    <h4>@Model.AutomationEfficiency.AutoApprovalRate.ToString("0.0")%</h4>
-                                    <small>Auto-Approval Rate</small>
+                                    <h4>@Model.AllPendingClaims.Count(c => c.CurrentStage == "CoordinatorReview")</h4>
+                                    <small>Coordinator Review</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-6 mb-3">
+                            <div class="card bg-purple text-white">
+                                <div class="card-body py-3">
+                                    <h4>@Model.AllPendingClaims.Count(c => c.CurrentStage == "ManagerReview")</h4>
+                                    <small>Manager Review</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card bg-success text-white">
+                                <div class="card-body py-3">
+                                    <h4>@Model.AllPendingClaims.Count(c => c.Status == "Approved")</h4>
+                                    <small>Approved</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
                             <div class="card bg-danger text-white">
                                 <div class="card-body py-3">
-                                    <h4>@Model.AutomationEfficiency.AutoRejectionRate.ToString("0.0")%</h4>
-                                    <small>Auto-Rejection Rate</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="card bg-warning text-white">
-                                <div class="card-body py-3">
-                                    <h4>@Model.AutomationEfficiency.ManualReviewRate.ToString("0.0")%</h4>
-                                    <small>Manual Review Rate</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="card bg-primary text-white">
-                                <div class="card-body py-3">
-                                    <h4>@Model.AutomationEfficiency.TotalProcessed</h4>
-                                    <small>Total Processed</small>
+                                    <h4>@Model.AllPendingClaims.Count(c => c.Status == "Rejected")</h4>
+                                    <small>Rejected</small>
                                 </div>
                             </div>
                         </div>
@@ -224,15 +221,10 @@
                                                class="btn btn-outline-info" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <button class="btn btn-outline-success"
-                                                    onclick="overrideApproval(@claim.Id)"
-                                                    title="Override Approval">
-                                                <i class="fas fa-user-check"></i>
-                                            </button>
-                                            <button class="btn btn-outline-primary"
-                                                    onclick="verifyClaim(@claim.Id)">
-                                                <i class="fas fa-robot"></i>
-                                            </button>
+                                            <a href="@Url.Action("ManagerApprovals")"
+                                               class="btn btn-outline-success" title="Review Claim">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </a>
                                         </div>
                                     </td>
                                 </tr>
@@ -245,76 +237,8 @@
     </div>
 </div>
 
-<!-- Override Approval Modal -->
-<div class="modal fade" id="overrideModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Override Approval</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Reason for Override</label>
-                    <textarea class="form-control" id="overrideReason" rows="3"
-                              placeholder="Provide reason for manual approval override..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" onclick="confirmOverride()">Approve Override</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script>
-        let currentClaimId = null;
-
-        function overrideApproval(claimId) {
-            currentClaimId = claimId;
-            $('#overrideReason').val('');
-            new bootstrap.Modal(document.getElementById('overrideModal')).show();
-        }
-
-        function confirmOverride() {
-            const reason = $('#overrideReason').val();
-            if (!reason.trim()) {
-                alert('Please provide a reason for the override.');
-                return;
-            }
-
-            $.post('@Url.Action("OverrideApproval")', {
-                claimId: currentClaimId,
-                reason: reason
-            })
-            .done(function (data) {
-                if (data.success) {
-                    alert('Claim approved successfully!');
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .fail(function (xhr) {
-                alert('Error overriding approval: ' + xhr.responseText);
-            });
-        }
-
-        function verifyClaim(claimId) {
-            $.post('@Url.Action("RunAutomatedVerification")', { claimId: claimId })
-                .done(function (data) {
-                    if (data.success) {
-                        let message = `Claim #${claimId} Verification:\n\n`;
-                        message += `Status: ${data.isValid ? 'Valid' : 'Invalid'}\n`;
-                        message += `Recommended: ${data.recommendedAction}\n`;
-                        if (data.errors.length > 0) {
-                            message += `\nErrors:\n- ${data.errors.join('\n- ')}`;
-                        }
-                        alert(message);
-                    }
-                });
-        }
-    </script>
-}
+<style>
+    .bg-purple {
+        background-color: #9B59B6 !important;
+    }
+</style>
