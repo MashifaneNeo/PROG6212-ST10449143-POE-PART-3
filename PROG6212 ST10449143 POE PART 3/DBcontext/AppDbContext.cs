@@ -39,7 +39,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
 
                 entity.Property(e => e.UserId).IsRequired();
 
-                // Configure relationship
                 entity.HasOne(c => c.User).WithMany(u => u.Claims).HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
 
                 entity.Property(e => e.CurrentStage).IsRequired().HasMaxLength(50).HasDefaultValue("CoordinatorReview");

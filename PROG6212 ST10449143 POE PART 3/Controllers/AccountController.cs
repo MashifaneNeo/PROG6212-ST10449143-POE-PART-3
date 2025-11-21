@@ -51,7 +51,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                         var roles = await _userManager.GetRolesAsync(user);
                         Console.WriteLine($"User roles: {string.Join(", ", roles)}");
 
-                        // INITIALIZE SESSION BASED ON ROLE
+                        // Initiliaze seesion based on role
                         if (await _userManager.IsInRoleAsync(user, "Coordinator"))
                         {
                             HttpContext.Session.SetString($"CoordinatorAccess_{user.UserName}", DateTime.Now.ToString());

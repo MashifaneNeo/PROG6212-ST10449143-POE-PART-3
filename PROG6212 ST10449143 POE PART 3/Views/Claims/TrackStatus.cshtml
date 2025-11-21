@@ -41,7 +41,10 @@
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">Claim #@claim.Id - @claim.Month</h6>
                             <div>
-                                <span class="badge @GetStatusBadgeClass(claim.Status) me-2">@claim.Status</span>
+                                <span class="badge @GetStatusBadgeClass(claim.Status, claim.CurrentStage) me-2">
+                                    @GetStatusDisplayText(claim.Status, claim.CurrentStage)
+                                </span>
+                                <!-- Delete button -->
                                 <form asp-action="Delete" method="post" class="d-inline">
                                     <input type="hidden" name="id" value="@claim.Id" />
                                     <button type="submit" class="btn btn-sm btn-outline-danger"
@@ -53,43 +56,70 @@
                         </div>
                         <div class="card-body">
                             <div class="progress mb-4" style="height: 10px;">
-                                <div class="progress-bar @GetProgressBarClass(claim.Status)"
-                                     style="width: @GetProgressPercentage(claim.Status)%"
+                                <div class="progress-bar @GetProgressBarClass(claim.Status, claim.CurrentStage)"
+                                     style="width: @GetProgressPercentage(claim.Status, claim.CurrentStage)%"
                                      role="progressbar"
-                                     aria-valuenow="@GetProgressPercentage(claim.Status)"
+                                     aria-valuenow="@GetProgressPercentage(claim.Status, claim.CurrentStage)"
                                      aria-valuemin="0"
                                      aria-valuemax="100">
                                 </div>
                             </div>
 
                             <div class="row text-center mb-3">
-                                <div class="col-4">
-                                    <div class="@GetStepIconClass("Submitted", claim.Status) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                <div class="col-3">
+                                    <div class="@GetStepIconClass("Submitted", claim.Status, claim.CurrentStage) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
                                          style="width: 50px; height: 50px;">
                                         <i class="fas fa-paper-plane fs-5"></i>
                                     </div>
                                     <small class="d-block fw-bold mt-1">Submitted</small>
                                     <small class="text-muted">@claim.SubmittedDate.ToString("MMM dd")</small>
                                 </div>
-                                <div class="col-4">
-                                    <div class="@GetStepIconClass("Under Review", claim.Status) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                <div class="col-3">
+                                    <div class="@GetStepIconClass("CoordinatorReview", claim.Status, claim.CurrentStage) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
                                          style="width: 50px; height: 50px;">
-                                        <i class="fas fa-search fs-5"></i>
+                                        <i class="fas fa-user-check fs-5"></i>
                                     </div>
-                                    <small class="d-block fw-bold mt-1">Under Review</small>
-                                    <small class="text-muted">Coordinator</small>
+                                    <small class="d-block fw-bold mt-1">Coordinator</small>
+                                    <small class="text-muted">
+                                        @if (!string.IsNullOrEmpty(claim.CoordinatorReviewDate))
+                                        {
+                                            @claim.CoordinatorReviewDate
+                                        }
+                                        else
+                                        {
+                                            @:Pending
+                                        }
+                                    </small>
                                 </div>
-                                <div class="col-4">
-                                    <div class="@GetStepIconClass("Approved", claim.Status) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                <div class="col-3">
+                                    <div class="@GetStepIconClass("ManagerReview", claim.Status, claim.CurrentStage) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                                         style="width: 50px; height: 50px;">
+                                        <i class="fas fa-user-tie fs-5"></i>
+                                    </div>
+                                    <small class="d-block fw-bold mt-1">Manager</small>
+                                    <small class="text-muted">
+                                        @if (!string.IsNullOrEmpty(claim.ManagerReviewDate))
+                                        {
+                                            @claim.ManagerReviewDate
+                                        }
+                                        else
+                                        {
+                                            @:Pending
+                                        }
+                                    </small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="@GetStepIconClass("Completed", claim.Status, claim.CurrentStage) rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
                                          style="width: 50px; height: 50px;">
                                         <i class="fas fa-check fs-5"></i>
                                     </div>
-                                    <small class="d-block fw-bold mt-1">Approved</small>
+                                    <small class="d-block fw-bold mt-1">Completed</small>
                                     <small class="text-muted">Final</small>
                                 </div>
                             </div>
 
-                            <div class="row small text-muted mt-4">                                
+                            <!-- Claim Details -->
+                            <div class="row small text-muted mt-4">
                                 <div class="col-md-6 mb-2">
                                     <strong>Amount:</strong> R @claim.TotalAmount.ToString("0.00")
                                 </div>
@@ -99,6 +129,24 @@
                                 <div class="col-md-6 mb-2">
                                     <strong>Hourly Rate:</strong> R @claim.HourlyRate.ToString("0.00")
                                 </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Current Stage:</strong>
+                                    <span class="fw-bold @GetStageTextClass(claim.CurrentStage)">
+                                        @GetStageDisplayText(claim.CurrentStage)
+                                    </span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(claim.CoordinatorApprover))
+                                {
+                                    <div class="col-md-6 mb-2">
+                                        <strong>Coordinator:</strong> @claim.CoordinatorApprover
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(claim.ManagerApprover))
+                                {
+                                    <div class="col-md-6 mb-2">
+                                        <strong>Manager:</strong> @claim.ManagerApprover
+                                    </div>
+                                }
                                 @if (!string.IsNullOrEmpty(claim.AdditionalNotes))
                                 {
                                     <div class="col-12 mb-2">
@@ -121,19 +169,32 @@
                                 }
                             </div>
 
+                            <!-- Status Messages -->
                             @if (claim.Status == "Rejected" && !string.IsNullOrEmpty(claim.RejectionReason))
                             {
                                 <div class="alert alert-danger mt-3 mb-0">
                                     <strong><i class="fas fa-exclamation-triangle me-1"></i>Rejection Reason:</strong> @claim.RejectionReason
                                 </div>
                             }
-
-                            @if (claim.Status == "Approved")
+                            else if (claim.Status == "Approved")
                             {
                                 <div class="alert alert-success mt-3 mb-0">
                                     <strong><i class="fas fa-check-circle me-1"></i>Claim Approved:</strong> This claim has been fully approved and processed.
                                 </div>
                             }
+                            else if (claim.CurrentStage == "ManagerReview")
+                            {
+                                <div class="alert alert-info mt-3 mb-0">
+                                    <strong><i class="fas fa-user-tie me-1"></i>With Academic Manager:</strong> Your claim has been approved by the Programme Coordinator and is now with the Academic Manager for final approval.
+                                </div>
+                            }
+                            else if (claim.CurrentStage == "CoordinatorReview")
+                            {
+                                <div class="alert alert-warning mt-3 mb-0">
+                                    <strong><i class="fas fa-user-check me-1"></i>With Programme Coordinator:</strong> Your claim is currently being reviewed by the Programme Coordinator.
+                                </div>
+                            }
+                            
                         </div>
                     </div>
                 </div>
@@ -143,66 +204,144 @@
 </div>
 
 @functions {
-    private string GetStatusBadgeClass(string status)
+    private string GetStatusDisplayText(string status, string currentStage)
     {
+        if (status == "Under Review")
+        {
+            return currentStage switch
+            {
+                "CoordinatorReview" => "With Coordinator",
+                "ManagerReview" => "With Manager",
+                _ => status
+            };
+        }
+        return status;
+    }
+
+    private string GetStageDisplayText(string currentStage)
+    {
+        return currentStage switch
+        {
+            "CoordinatorReview" => "With Coordinator",
+            "ManagerReview" => "With Manager",
+            "Completed" => "Completed",
+            _ => currentStage
+        };
+    }
+
+    private string GetStageTextClass(string currentStage)
+    {
+        return currentStage switch
+        {
+            "CoordinatorReview" => "text-warning",
+            "ManagerReview" => "text-info",
+            "Completed" => "text-success",
+            _ => "text-muted"
+        };
+    }
+
+    private string GetStatusBadgeClass(string status, string currentStage)
+    {
+        if (status == "Under Review")
+        {
+            return currentStage switch
+            {
+                "CoordinatorReview" => "bg-warning",
+                "ManagerReview" => "bg-info",
+                _ => "bg-warning"
+            };
+        }
+
         return status switch
         {
             "Submitted" => "bg-secondary",
             "Under Review" => "bg-warning",
             "Approved" => "bg-success",
             "Rejected" => "bg-danger",
+            "Pending Manager Review" => "bg-info",
             _ => "bg-secondary"
         };
     }
 
-    private string GetProgressBarClass(string status)
+    private string GetProgressBarClass(string status, string currentStage)
     {
+        if (status == "Under Review")
+        {
+            return currentStage switch
+            {
+                "CoordinatorReview" => "bg-warning",
+                "ManagerReview" => "bg-info",
+                _ => "bg-warning"
+            };
+        }
+
         return status switch
         {
             "Rejected" => "bg-danger",
             "Approved" => "bg-success",
             "Under Review" => "bg-warning",
             "Submitted" => "bg-info",
+            "Pending Manager Review" => "bg-info",
             _ => "bg-secondary"
         };
     }
 
-    private int GetProgressPercentage(string status)
+    private int GetProgressPercentage(string status, string currentStage)
     {
-        return status switch
+        // Progress based on workflow stage
+        if (status == "Rejected" || status == "Approved")
         {
-            "Submitted" => 33,
-            "Under Review" => 66,
-            "Approved" => 100,
-            "Rejected" => 100,
+            return 100;
+        }
+
+        return currentStage switch
+        {
+            "CoordinatorReview" => 33,
+            "ManagerReview" => 66,
+            "Completed" => 100,
             _ => 0
         };
     }
 
-    private string GetStepIconClass(string step, string claimStatus)
+    private string GetStepIconClass(string step, string status, string currentStage)
     {
         var stepOrder = new Dictionary<string, int>
         {
             ["Submitted"] = 1,
-            ["Under Review"] = 2,
-            ["Approved"] = 3
+            ["CoordinatorReview"] = 2,
+            ["ManagerReview"] = 3,
+            ["Completed"] = 4
         };
 
-        var statusOrder = new Dictionary<string, int>
+        var currentStepIndex = GetCurrentStepIndex(status, currentStage);
+        var stepIndex = stepOrder.ContainsKey(step) ? stepOrder[step] : 0;
+
+        if (status == "Rejected")
         {
-            ["Submitted"] = 1,
-            ["Under Review"] = 2,
-            ["Approved"] = 3,
-            ["Rejected"] = 4
-        };
+            return stepIndex > 1 ? "bg-danger text-white" : "bg-success text-white";
+        }
 
-        var currentStep = statusOrder.ContainsKey(claimStatus) ? statusOrder[claimStatus] : 0;
-        var stepIndex = stepOrder[step];
-
-        if (claimStatus == "Rejected" && stepIndex >= 2)
-            return "bg-danger text-white";
-        if (stepIndex <= currentStep)
+        if (stepIndex <= currentStepIndex)
+        {
             return "bg-success text-white";
+        }
+
         return "bg-light text-muted border";
+    }
+
+    private int GetCurrentStepIndex(string status, string currentStage)
+    {
+        if (status == "Approved" || status == "Rejected")
+        {
+            return 4; 
+        }
+
+        return currentStage switch
+        {
+            "CoordinatorReview" => 2,
+            "ManagerReview" => 3,
+            "Completed" => 4,
+            _ => 1
+        };
     }
 }

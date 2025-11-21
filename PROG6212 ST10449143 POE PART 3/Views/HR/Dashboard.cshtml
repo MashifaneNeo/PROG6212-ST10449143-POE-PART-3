@@ -149,7 +149,6 @@
 
 @section Scripts {
     <script>
-        // Load dashboard stats from server
         async function loadDashboardStats() {
             try {
                 const response = await fetch('@Url.Action("GetDashboardStats", "HR")');
@@ -161,7 +160,6 @@
                 document.getElementById('totalAmount').textContent = 'R ' + data.totalAmount.toLocaleString('en-ZA', {minimumFractionDigits: 2});
             } catch (error) {
                 console.error('Error loading dashboard stats:', error);
-                // Fallback to loading indicators
                 document.getElementById('totalUsers').textContent = 'Error';
                 document.getElementById('pendingClaims').textContent = 'Error';
                 document.getElementById('approvedClaims').textContent = 'Error';

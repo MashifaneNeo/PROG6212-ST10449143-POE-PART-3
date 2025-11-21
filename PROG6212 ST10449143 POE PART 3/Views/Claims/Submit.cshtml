@@ -38,7 +38,6 @@
                     <form asp-action="Submit" method="post" enctype="multipart/form-data" id="claimForm">
                         @Html.AntiForgeryToken()
 
-                        <!-- Lecturer Information (Read-only) -->
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -159,7 +158,6 @@
 
 @section Scripts {
     <script>
-        // Constants
         const MAX_HOURS = 180;
         const HOURLY_RATE = @Model.HourlyRate;
 
@@ -171,7 +169,6 @@
             const remainingHours = MAX_HOURS - hours;
             const progressPercentage = (hours / MAX_HOURS) * 100;
 
-            // Update display
             document.getElementById('hoursPreview').textContent = hours.toFixed(1);
             document.getElementById('totalPreview').textContent = 'R ' + total.toFixed(2);
             document.getElementById('remainingHours').textContent = remainingHours.toFixed(1);
@@ -181,7 +178,6 @@
             const progressText = document.getElementById('progressText');
             progressText.textContent = progressPercentage.toFixed(1) + '% of monthly limit';
 
-            // Visual feedback based on hours
             const progressBar = document.getElementById('hoursProgress');
             const submitBtn = document.getElementById('submitBtn');
 
@@ -223,7 +219,6 @@
             }
         }
 
-        // Event listeners for real-time calculation
         document.getElementById('hoursWorkedInput').addEventListener('input', function(e) {
             let value = parseFloat(e.target.value) || 0;
 
@@ -307,11 +302,9 @@
             });
         });
 
-        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             updateCalculationPreview();
 
-            // Set initial hours if not set
             const hoursInput = document.getElementById('hoursWorkedInput');
             if (!hoursInput.value || hoursInput.value === '0.0') {
                 hoursInput.value = '0.0';

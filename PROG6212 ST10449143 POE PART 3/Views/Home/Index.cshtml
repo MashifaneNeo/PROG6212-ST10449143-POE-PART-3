@@ -3,44 +3,297 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<div class="container text-center mt-5">
-    <div class="p-5 bg-light shadow rounded-3">
-        <h1 class="display-4 text-primary fw-bold">Contract Claim Management System (CCMS)</h1>
-        <p class="lead text-muted mt-3">
-            Welcome to CCMS, a streamlined platform for managing lecturer contract claims efficiently.
-            Submit claims, track progress, and ensure fast approvals with full transparency.
-        </p>
-
-        <hr class="my-4">
-
-        <div class="row mt-4">
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body">
-                        <i class="fas fa-file-invoice-dollar fa-3x text-primary mb-3"></i>
-                        <h5>Submit Claims</h5>
-                        <p class="text-muted">Lecturers can quickly submit their claims with supporting documents anytime.</p>
-                    </div>
-                </div>
+<div class="container mt-5">
+    <!-- Hero Section -->
+    <div class="p-5 bg-gradient-primary text-white shadow rounded-3 mb-5" style="background: linear-gradient(135deg, #2C3E50 0%, #4A6491 100%);">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="display-4 fw-bold mb-3">Contract Claim Management System</h1>
+                <p class="lead mb-4 opacity-90">
+                    Streamline your contract claim process with our comprehensive management platform.
+                    From submission to approval, experience seamless workflow automation and real-time tracking.
+                </p>
+                @if (!User.Identity.IsAuthenticated)
+                {
+                    <a href="@Url.Action("Login", "Account")" class="btn btn-light btn-lg px-4 me-3">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </a>
+                    <a href="#features" class="btn btn-outline-light btn-lg px-4">
+                        <i class="fas fa-info-circle me-2"></i>Learn More
+                    </a>
+                }
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body">
-                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                        <h5>Approvals</h5>
-                        <p class="text-muted">Programme Coordinators and Academic Managers can review and approve claims easily.</p>
-                    </div>
-                </div>
+            <div class="col-lg-4 text-center">
+                <i class="fas fa-file-contract fa-8x opacity-75"></i>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm border-0">
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    @if (User.Identity.IsAuthenticated)
+    {
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
                     <div class="card-body">
-                        <i class="fas fa-tasks fa-3x text-info mb-3"></i>
-                        <h5>Track Status</h5>
-                        <p class="text-muted">Track the status of your claims transparently from submission to settlement.</p>
+                        <h4 class="text-primary mb-4">
+                            <i class="fas fa-tachometer-alt me-2"></i>Quick Access
+                        </h4>
+                        <div class="row text-center">
+                            @if (User.IsInRole("Lecturer"))
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("Submit", "Claims")" class="btn btn-primary btn-lg w-100 py-3">
+                                        <i class="fas fa-plus-circle fa-2x mb-2"></i><br>
+                                        Submit New Claim
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("TrackStatus", "Claims")" class="btn btn-info btn-lg w-100 py-3">
+                                        <i class="fas fa-tasks fa-2x mb-2"></i><br>
+                                        Track Claims
+                                    </a>
+                                </div>
+                            }
+                            @if (User.IsInRole("Coordinator"))
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("CoordinatorApprovals", "Claims")" class="btn btn-warning btn-lg w-100 py-3">
+                                        <i class="fas fa-clipboard-check fa-2x mb-2"></i><br>
+                                        Review Claims
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("CoordinatorDashboard", "Claims")" class="btn btn-success btn-lg w-100 py-3">
+                                        <i class="fas fa-robot fa-2x mb-2"></i><br>
+                                        Automation Tools
+                                    </a>
+                                </div>
+                            }
+                            @if (User.IsInRole("AcademicManager"))
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("ManagerApprovals", "Claims")" class="btn btn-info btn-lg w-100 py-3">
+                                        <i class="fas fa-user-tie fa-2x mb-2"></i><br>
+                                        Final Approvals
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("AcademicManagerDashboard", "Claims")" class="btn btn-purple btn-lg w-100 py-3">
+                                        <i class="fas fa-chart-line fa-2x mb-2"></i><br>
+                                        Analytics
+                                    </a>
+                                </div>
+                            }
+                            @if (User.IsInRole("HR"))
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("Dashboard", "HR")" class="btn btn-success btn-lg w-100 py-3">
+                                        <i class="fas fa-tachometer-alt fa-2x mb-2"></i><br>
+                                        HR Dashboard
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="@Url.Action("UserManagement", "HR")" class="btn btn-primary btn-lg w-100 py-3">
+                                        <i class="fas fa-users fa-2x mb-2"></i><br>
+                                        Manage Users
+                                    </a>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    }
+
+    <!-- Features Section -->
+    <div id="features" class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="text-primary fw-bold">How It Works</h2>
+            <p class="lead text-muted">A streamlined workflow designed for efficiency and transparency</p>
+        </div>
+
+        <!-- Workflow Steps -->
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-0 text-center">
+                <div class="card-body">
+                    <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <span class="h4 mb-0">1</span>
+                    </div>
+                    <i class="fas fa-file-invoice-dollar fa-2x text-primary mb-3"></i>
+                    <h5>Submit Claim</h5>
+                    <p class="text-muted small">
+                        <strong>Lecturers:</strong> Submit claims with supporting documents.
+                        Real-time calculations and validation ensure accuracy.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-0 text-center">
+                <div class="card-body">
+                    <div class="step-number bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <span class="h4 mb-0">2</span>
+                    </div>
+                    <i class="fas fa-user-check fa-2x text-warning mb-3"></i>
+                    <h5>Coordinator Review</h5>
+                    <p class="text-muted small">
+                        <strong>Programme Coordinators:</strong> Review claims against department policies.
+                        Automated validation assists in decision making.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-0 text-center">
+                <div class="card-body">
+                    <div class="step-number bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <span class="h4 mb-0">3</span>
+                    </div>
+                    <i class="fas fa-user-tie fa-2x text-info mb-3"></i>
+                    <h5>Manager Approval</h5>
+                    <p class="text-muted small">
+                        <strong>Academic Managers:</strong> Final approval with oversight capabilities.
+                        High-value claims receive special attention.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-0 text-center">
+                <div class="card-body">
+                    <div class="step-number bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <span class="h4 mb-0">4</span>
+                    </div>
+                    <i class="fas fa-check-double fa-2x text-success mb-3"></i>
+                    <h5>Processing</h5>
+                    <p class="text-muted small">
+                        <strong>HR:</strong> Automated reporting and payment processing.
+                        Complete audit trail for compliance.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+
+    <!-- Role-Based Features -->
+    <div class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="text-primary fw-bold">Role-Based Features</h2>
+            <p class="lead text-muted">Tailored functionality for each user role</p>
+        </div>
+
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-primary text-white text-center">
+                    <i class="fas fa-chalkboard-teacher fa-2x mb-2"></i>
+                    <h6 class="mb-0">Lecturer</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Submit claims</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Upload supporting documents</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Real-time status tracking</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Automatic calculations</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Claim history</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-warning text-dark text-center">
+                    <i class="fas fa-tasks fa-2x mb-2"></i>
+                    <h6 class="mb-0">Programme Coordinator</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Review and approve claims</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Automated validation tools</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Bulk processing</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Department oversight</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Workflow management</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-info text-white text-center">
+                    <i class="fas fa-user-tie fa-2x mb-2"></i>
+                    <h6 class="mb-0">Academic Manager</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Final claim approval</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>High-value claim oversight</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Department analytics</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Performance metrics</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Executive reporting</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-success text-white text-center">
+                    <i class="fas fa-users-cog fa-2x mb-2"></i>
+                    <h6 class="mb-0">HR Manager</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>User management</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Comprehensive reporting</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>System administration</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Audit trails</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Data analytics</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div> 
+
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #2C3E50 0%, #4A6491 100%);
+    }
+
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+
+    .step-number {
+        font-weight: bold;
+        margin: 0 auto;
+    }
+
+    .card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        }
+</style>
+
+@section Scripts {
+    <script>
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+}

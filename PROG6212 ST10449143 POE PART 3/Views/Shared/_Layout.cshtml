@@ -234,7 +234,6 @@
             }
         }
 
-        /* Workflow status badges */
         .badge-coordinator {
             background: #F39C12;
             color: white;
@@ -409,7 +408,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Mobile sidebar toggle
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('mobile-open');
@@ -437,7 +435,6 @@
             });
         });
 
-        // Auto-hide mobile sidebar on larger screens
         window.addEventListener('resize', function() {
             const sidebar = document.getElementById('sidebar');
             if (window.innerWidth > 768) {
@@ -451,7 +448,6 @@
             setTimeout(() => {
                 if (!sessionWarningShown) {
                     if (confirm('Your session will expire in 5 minutes. Would you like to extend it?')) {
-                        // Refresh the page to extend session
                         window.location.reload();
                     } else {
                         sessionWarningShown = true;
@@ -460,7 +456,6 @@
             }, 25 * 60 * 1000);
         }
 
-        // Start session timeout check if user is authenticated
         @if (User.Identity.IsAuthenticated)
         {
                     <text>checkSessionTimeout();</text>

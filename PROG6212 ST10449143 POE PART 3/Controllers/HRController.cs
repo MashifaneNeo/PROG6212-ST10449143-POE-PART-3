@@ -108,7 +108,13 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
                 ViewBag.TotalClaims = allClaims.Count;
                 ViewBag.ApprovedClaims = allClaims.Count(c => c.Status == "Approved");
-                ViewBag.PendingClaims = allClaims.Count(c => c.Status == "Submitted" || c.Status == "Under Review");
+                ViewBag.PendingClaims = allClaims.Count(c =>
+                    c.Status == "Submitted" ||
+                    c.Status == "Under Review" ||
+                    c.Status == "Pending Manager Review" ||
+                    (c.CurrentStage != "Completed" && c.Status != "Approved" && c.Status != "Rejected")
+                );
+
                 ViewBag.RejectedClaims = allClaims.Count(c => c.Status == "Rejected");
                 ViewBag.TotalUsers = allUsers.Count;
 

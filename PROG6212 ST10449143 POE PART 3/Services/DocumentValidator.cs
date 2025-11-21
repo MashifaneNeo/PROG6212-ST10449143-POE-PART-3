@@ -11,14 +11,12 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         {
             var result = new DocumentValidationResult();
 
-            // 1. Check if file has a name
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 result.AddError("File must have a name");
                 return result;
             }
 
-            // 2. Check file extension
             var extension = Path.GetExtension(fileName).ToLowerInvariant();
             if (!_allowedExtensions.Contains(extension))
             {
@@ -26,14 +24,12 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 return result;
             }
 
-            // 3. Check file size
             if (fileSize > _maxFileSize)
             {
                 result.AddError($"File size {fileSize} bytes exceeds maximum allowed size of {_maxFileSize} bytes (5MB)");
                 return result;
             }
 
-            // 4. Check for dangerous file names
             if (fileName.Contains("..") || fileName.Contains("/") || fileName.Contains("\\"))
             {
                 result.AddError("File name contains invalid characters");

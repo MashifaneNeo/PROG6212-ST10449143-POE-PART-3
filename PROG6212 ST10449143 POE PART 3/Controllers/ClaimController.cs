@@ -147,9 +147,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                         HourlyRate = currentUser.HourlyRate,
                         AdditionalNotes = model.AdditionalNotes ?? string.Empty,
                         SupportingDocument = fileName ?? string.Empty,
-                        Status = "Under Review",
+                        Status = "Under Review", 
                         SubmittedDate = DateTime.Now,
-                        CurrentStage = "CoordinatorReview", // Start with Coordinator
+                        CurrentStage = "CoordinatorReview", 
                         IsCoordinatorApproved = false,
                         IsManagerApproved = false
                     };
@@ -160,27 +160,21 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
 
                     Console.WriteLine($"Claim saved successfully with ID: {claim.Id}");
 
-                    // Run automated verification on new claim
+                    // Run automated verification for validation 
                     try
                     {
                         if (_automationService != null)
                         {
                             var verificationResult = await _automationService.AutomaticallyVerifyClaimAsync(claim);
-                            if (verificationResult.CanAutoApprove && verificationResult.IsValid && claim.CurrentStage == "CoordinatorReview")
-                            {
-                                // Auto-approve at coordinator level and move to manager
-                                claim.IsCoordinatorApproved = true;
-                                claim.CoordinatorApprover = "System Auto-Approval";
-                                claim.CoordinatorReviewDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-                                claim.CurrentStage = "ManagerReview";
-                                claim.Status = "Pending Manager Review";
-                                await _context.SaveChangesAsync();
 
-                                TempData["SuccessMessage"] = "Claim submitted and automatically approved by Coordinator! Awaiting Manager review.";
+                            if (verificationResult.IsValid)
+                            {
+                                TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting Coordinator review.";
                             }
                             else
                             {
-                                TempData["SuccessMessage"] = "Claim submitted successfully! Awaiting Coordinator review.";
+                                var errorMessage = string.Join("; ", verificationResult.Errors);
+                                TempData["WarningMessage"] = $"Claim submitted with warnings: {errorMessage}. Awaiting Coordinator review.";
                             }
                         }
                         else
@@ -228,7 +222,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return View(model);
         }
 
-        // COORDINATOR WORKFLOW METHODS
+        // Coordinator workflow methods
         [Authorize(Roles = "Coordinator")]
         public async Task<IActionResult> CoordinatorApprovals()
         {
@@ -241,7 +235,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                     return RedirectToAction("Login", "Account");
                 }
 
-                // Only show claims at CoordinatorReview stage
                 var coordinatorClaims = await _context.Claims
                     .Include(c => c.User)
                     .Where(c => c.CurrentStage == "CoordinatorReview" && c.Status == "Under Review")
@@ -349,7 +342,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return RedirectToAction("CoordinatorApprovals");
         }
 
-        // MANAGER WORKFLOW METHODS
+        // Manager workflow methods
         [Authorize(Roles = "AcademicManager")]
         public async Task<IActionResult> ManagerApprovals()
         {
@@ -469,7 +462,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return RedirectToAction("ManagerApprovals");
         }
 
-        // SESSION VALIDATION METHODS
+        // Session validation methods
         private async Task<bool> ValidateCoordinatorSession()
         {
             var sessionKey = $"CoordinatorAccess_{User.Identity.Name}";
@@ -547,11 +540,9 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             }
         }
 
-        // Updated Approvals method for backward compatibility
         [Authorize(Roles = "Coordinator,AcademicManager,HR")]
         public async Task<IActionResult> Approvals()
         {
-            // Redirect based on role
             if (User.IsInRole("Coordinator"))
             {
                 return RedirectToAction("CoordinatorApprovals");
@@ -561,7 +552,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 return RedirectToAction("ManagerApprovals");
             }
 
-            // HR can use the old view
             try
             {
                 HttpContext.Session.SetString("LastAccess_Approvals", DateTime.Now.ToString());
@@ -628,42 +618,76 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
                 return RedirectToAction("AccessDenied", "Account");
             }
 
-            var claims = await _context.Claims
-                .Include(c => c.User)
-                .Where(c => c.CurrentStage == "ManagerReview" || c.Status == "Pending Manager Review")
-                .ToListAsync();
-
-            var sortedClaims = claims
-                .OrderByDescending(c => c.HoursWorked)
-                .ThenByDescending(c => c.TotalAmount)
-                .ToList();
-
-            var highValueClaims = sortedClaims.Where(c => c.TotalAmount > 10000).ToList();
-
-            var departmentSummary = sortedClaims
-                .GroupBy(c => c.User?.Department ?? "Unknown")
-                .Select(g => new DepartmentSummary
-                {
-                    Department = g.Key,
-                    TotalClaims = g.Count(),
-                    TotalAmount = g.Sum(c => c.TotalAmount),
-                    AverageHours = g.Average(c => c.HoursWorked)
-                })
-                .ToList();
-
-            var managerModel = new AcademicManagerDashboardViewModel
+            try
             {
-                AllPendingClaims = sortedClaims,
-                HighValueClaims = highValueClaims,
-                DepartmentSummaries = departmentSummary,
-                TotalPendingAmount = sortedClaims.Sum(c => c.TotalAmount),
-                AutomationEfficiency = CalculateAutomationEfficiency()
-            };
+                // Get ALL claims for the dashboard
+                var claims = await _context.Claims
+                    .Include(c => c.User)
+                    .Where(c => c.Status != "Deleted") 
+                    .ToListAsync();
 
-            return View(managerModel);
+                // Sort in memory
+                var sortedClaims = claims
+                    .OrderByDescending(c => c.SubmittedDate)
+                    .ToList();
+
+                // High value claims - claims over R10,000 that are not completed
+                var highValueClaims = sortedClaims
+                    .Where(c => c.TotalAmount > 10000 &&
+                               c.CurrentStage != "Completed" &&
+                               c.Status != "Rejected")
+                    .OrderByDescending(c => c.TotalAmount)
+                    .ToList();
+
+                // Calculate department summaries
+                var departmentSummary = sortedClaims
+                    .Where(c => c.User != null)
+                    .GroupBy(c => c.User.Department ?? "Unknown")
+                    .Select(g => new DepartmentSummary
+                    {
+                        Department = g.Key,
+                        TotalClaims = g.Count(),
+                        TotalAmount = g.Sum(c => c.TotalAmount),
+                        AverageHours = g.Average(c => c.HoursWorked)
+                    })
+                    .OrderByDescending(g => g.TotalAmount)
+                    .ToList();
+
+                // Calculate total pending amount
+                var totalPendingAmount = sortedClaims
+                    .Where(c => c.CurrentStage != "Completed" && c.Status != "Rejected")
+                    .Sum(c => c.TotalAmount);
+
+                var managerModel = new AcademicManagerDashboardViewModel
+                {
+                    AllPendingClaims = sortedClaims,
+                    HighValueClaims = highValueClaims,
+                    DepartmentSummaries = departmentSummary,
+                    TotalPendingAmount = totalPendingAmount,
+                    AutomationEfficiency = CalculateAutomationEfficiency()
+                };
+
+                return View(managerModel);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading academic manager dashboard: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                var emptyModel = new AcademicManagerDashboardViewModel
+                {
+                    AllPendingClaims = new List<Claim>(),
+                    HighValueClaims = new List<Claim>(),
+                    DepartmentSummaries = new List<DepartmentSummary>(),
+                    TotalPendingAmount = 0,
+                    AutomationEfficiency = new AutomationEfficiency()
+                };
+
+                TempData["ErrorMessage"] = "Error loading dashboard data. Please try again.";
+                return View(emptyModel);
+            }
         }
 
-        // Keep existing methods but update automation to respect workflow
         [HttpPost]
         [Authorize(Roles = "Coordinator,AcademicManager")]
         public async Task<IActionResult> RunAutomatedVerification(int claimId)
@@ -746,7 +770,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             HttpContext.Session.SetString($"Override_{claimId}",
                 $"{DateTime.Now}: {User.Identity.Name} - {reason}");
 
-            // Override workflow and approve directly
             claim.IsCoordinatorApproved = true;
             claim.IsManagerApproved = true;
             claim.CoordinatorApprover = "System Override";
@@ -760,7 +783,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
             return Json(new { success = true, message = "Claim approved manually" });
         }
 
-        // Keep other existing methods (TrackStatus, Details, CalculateTotal, etc.) unchanged
         [Authorize(Roles = "Lecturer")]
         public async Task<IActionResult> TrackStatus()
         {
@@ -934,7 +956,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Controllers
         }
     }
 
-    // ViewModel classes remain the same
     public class CoordinatorDashboardViewModel
     {
         public List<Claim> PendingClaims { get; set; }

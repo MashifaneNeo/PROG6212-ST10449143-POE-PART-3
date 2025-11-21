@@ -33,8 +33,8 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             {
                 // Store verification session data
                 session.SetString($"Claim_{claim.Id}_VerificationStart", DateTime.Now.ToString());
-                var currentAttempts = session.GetInt32($"Claim_{claim.Id}_VerificationAttempts") ?? 0;
-                session.SetInt32($"Claim_{claim.Id}_VerificationAttempts", currentAttempts + 1);
+                session.SetInt32($"Claim_{claim.Id}_VerificationAttempts",
+                    session.GetInt32($"Claim_{claim.Id}_VerificationAttempts") ?? 0 + 1);
 
                 // Enhanced verification criteria for workflow
                 var criteria = new VerificationCriteria
@@ -42,24 +42,21 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     MaxHoursPerMonth = 180,
                     MinHoursPerClaim = 0.5m,
                     MaxHourlyRate = 1000,
-                    RequireDocumentationForHighHours = 160,
-                    AutoApproveThreshold = 120,
-                    MaxAutoApproveAmount = 20000 // R20,000 maximum for auto-approval
+                    RequireDocumentationForHighHours = 160
                 };
 
-                // Basic validation checks
                 if (claim.HoursWorked > criteria.MaxHoursPerMonth)
                 {
                     result.AddError($"Hours worked ({claim.HoursWorked}) exceed maximum allowed ({criteria.MaxHoursPerMonth})");
                     result.RecommendedAction = "Reject";
                 }
-                else if (claim.HoursWorked < criteria.MinHoursPerClaim)
+
+                if (claim.HoursWorked < criteria.MinHoursPerClaim)
                 {
                     result.AddError($"Hours worked ({claim.HoursWorked}) are below minimum required ({criteria.MinHoursPerClaim})");
                     result.RecommendedAction = "Reject";
                 }
 
-                // Check hourly rate
                 if (claim.HourlyRate > criteria.MaxHourlyRate)
                 {
                     result.AddError($"Hourly rate (R{claim.HourlyRate}) exceeds maximum allowed (R{criteria.MaxHourlyRate})");
@@ -73,36 +70,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     result.RecommendedAction = "Review";
                 }
 
-                // High-value claim check
-                if (claim.TotalAmount > criteria.MaxAutoApproveAmount)
-                {
-                    result.AddWarning($"High-value claim (R{claim.TotalAmount}) requires manual review");
-                    result.RecommendedAction = "Review";
-                    result.CanAutoApprove = false;
-                }
-
-                // Auto-approve criteria - ONLY for CoordinatorReview stage
-                if (claim.CurrentStage == "CoordinatorReview" &&
-                    claim.HoursWorked <= criteria.AutoApproveThreshold &&
-                    claim.HourlyRate <= 500 &&
-                    claim.TotalAmount <= criteria.MaxAutoApproveAmount &&
-                    !string.IsNullOrEmpty(claim.SupportingDocument) &&
-                    !result.Errors.Any())
-                {
-                    result.CanAutoApprove = true;
-                    result.RecommendedAction = "Approve";
-                    result.AutoApprovalReason = "Claim meets all criteria for automatic coordinator approval";
-                }
-
-                // For ManagerReview stage, always require manual review
-                if (claim.CurrentStage == "ManagerReview")
-                {
-                    result.AddInfo("Claim at Manager stage requires manual review");
-                    result.CanAutoApprove = false;
-                    result.RecommendedAction = "Review";
-                }
-
-                if (!result.Errors.Any() && !result.CanAutoApprove && claim.CurrentStage == "CoordinatorReview")
+                if (!result.Errors.Any())
                 {
                     result.RecommendedAction = "Review";
                     result.AddInfo("Claim requires manual coordinator review");
@@ -111,9 +79,10 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 result.IsValid = !result.Errors.Any();
                 result.VerifiedAt = DateTime.Now;
 
-                // Store result in session for tracking
+                // Store result in session
                 session.SetString($"Claim_{claim.Id}_LastVerification", DateTime.Now.ToString());
-                session.SetString($"Claim_{claim.Id}_VerificationResult", System.Text.Json.JsonSerializer.Serialize(result));
+                session.SetString($"Claim_{claim.Id}_VerificationResult",
+                    System.Text.Json.JsonSerializer.Serialize(result));
 
             }
             catch (Exception ex)
@@ -130,7 +99,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             var session = _httpContextAccessor.HttpContext.Session;
             session.SetString("LastAutomationRun", DateTime.Now.ToString());
 
-            // Get claims that are in CoordinatorReview stage for automation
             return await _context.Claims
                 .Include(c => c.User)
                 .Where(c => c.CurrentStage == "CoordinatorReview" && c.Status == "Under Review")
@@ -167,35 +135,20 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
 
             foreach (var claim in claims)
             {
-                // Only process claims at coordinator review stage for auto-approval
                 if (claim.CurrentStage == "CoordinatorReview")
                 {
                     var verificationResult = await AutomaticallyVerifyClaimAsync(claim);
 
-                    if (verificationResult.CanAutoApprove && verificationResult.IsValid)
-                    {
-                        // Auto-approve at coordinator level and move to manager
-                        claim.IsCoordinatorApproved = true;
-                        claim.CoordinatorApprover = "System Auto-Approval";
-                        claim.CoordinatorReviewDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-                        claim.CurrentStage = "ManagerReview";
-                        claim.Status = "Pending Manager Review";
-
-                        var approvedCount = session.GetInt32("Automation_ApprovedCount") ?? 0;
-                        session.SetInt32("Automation_ApprovedCount", approvedCount + 1);
-                    }
-                    else if (verificationResult.RecommendedAction == "Reject" && !verificationResult.IsValid)
+                    if (!verificationResult.IsValid && verificationResult.RecommendedAction == "Reject")
                     {
                         claim.Status = "Rejected";
                         claim.RejectionReason = $"Auto-rejected: {string.Join("; ", verificationResult.Errors)}";
-                        claim.CurrentStage = "Completed";
-
-                        var rejectedCount = session.GetInt32("Automation_RejectedCount") ?? 0;
-                        session.SetInt32("Automation_RejectedCount", rejectedCount + 1);
+                        session.SetInt32("Automation_RejectedCount",
+                            session.GetInt32("Automation_RejectedCount") ?? 0 + 1);
                     }
 
-                    var processedCount = session.GetInt32("Automation_ProcessedCount") ?? 0;
-                    session.SetInt32("Automation_ProcessedCount", processedCount + 1);
+                    session.SetInt32("Automation_ProcessedCount",
+                        session.GetInt32("Automation_ProcessedCount") ?? 0 + 1);
                 }
             }
 
@@ -225,7 +178,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 IsEligibleForAutoApproval = false
             };
 
-            // Check if claim is in session for tracking
             var verificationResultJson = session.GetString($"Claim_{claimId}_VerificationResult");
             if (!string.IsNullOrEmpty(verificationResultJson))
             {

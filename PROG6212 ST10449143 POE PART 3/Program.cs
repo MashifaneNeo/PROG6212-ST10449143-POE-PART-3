@@ -27,7 +27,6 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     options.SignIn.RequireConfirmedAccount = false;
     options.User.RequireUniqueEmail = true;
 
-    // Lockout settings
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.AllowedForNewUsers = true;
@@ -64,7 +63,6 @@ builder.Services.AddScoped<IHRService, HRService>();
 builder.Services.AddScoped<DocumentValidator>();
 builder.Services.AddScoped<IClaimAutomationService, ClaimAutomationService>();
 
-// Add CORS for API endpoints (if needed)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -96,10 +94,8 @@ app.UseCors("AllowAll");
 
 app.UseRouting();
 
-// Add session middleware BEFORE authentication and authorization
 app.UseSession();
 
-// Add custom session security middleware
 app.UseSessionSecurity();
 
 app.UseAuthentication();
@@ -110,7 +106,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Map API routes (if you want to add Web API endpoints)
+// Map API routes for Web API endpoints
 app.MapControllerRoute(
     name: "api",
     pattern: "api/{controller}/{action=Index}/{id?}");
@@ -257,31 +253,7 @@ using (var scope = app.Services.CreateScope())
                 await userManager.AddToRoleAsync(managerExists, "AcademicManager");
                 Console.WriteLine("Added AcademicManager role to existing user");
             }
-        }
-
-        // Create additional sample users for testing workflow
-        var lecturer2 = new User
-        {
-            FirstName = "Emily",
-            LastName = "Brown",
-            UserName = "emily.brown@university.ac.za",
-            Email = "emily.brown@university.ac.za",
-            HourlyRate = 280,
-            EmployeeId = "LEC002",
-            Department = "Engineering",
-            IsActive = true
-        };
-
-        var lecturer2Exists = await userManager.FindByEmailAsync(lecturer2.Email);
-        if (lecturer2Exists == null)
-        {
-            var createLecturer2 = await userManager.CreateAsync(lecturer2, "Lecturer123!");
-            if (createLecturer2.Succeeded)
-            {
-                await userManager.AddToRoleAsync(lecturer2, "Lecturer");
-                Console.WriteLine("Second sample lecturer created successfully!");
-            }
-        }
+        }       
 
         Console.WriteLine("Database seeding completed successfully!");
 

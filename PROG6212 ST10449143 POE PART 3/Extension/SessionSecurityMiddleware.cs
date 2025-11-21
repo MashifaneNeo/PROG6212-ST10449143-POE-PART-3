@@ -14,7 +14,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Extension
 
         public async Task InvokeAsync(HttpContext context)
         {
-            // Initialize session if needed
             await context.Session.LoadAsync();
 
             // Set security headers

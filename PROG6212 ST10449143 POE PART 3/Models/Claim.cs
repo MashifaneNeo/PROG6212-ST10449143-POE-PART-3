@@ -39,7 +39,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; } = "Under Review"; // Changed to "Under Review"
+        public string Status { get; set; } = "Under Review"; 
 
         public DateTime SubmittedDate { get; set; } = DateTime.Now;
 
@@ -53,28 +53,27 @@ namespace PROG6212_ST10449143_POE_PART_1.Models
         [StringLength(50)]
         public string CurrentStage { get; set; } = "CoordinatorReview";
 
-        public string? CoordinatorReviewDate { get; set; } // Made nullable
+        public string? CoordinatorReviewDate { get; set; } 
 
-        public string? ManagerReviewDate { get; set; } // Made nullable
-
-        [StringLength(100)]
-        public string? CoordinatorApprover { get; set; } // Made nullable
+        public string? ManagerReviewDate { get; set; } 
 
         [StringLength(100)]
-        public string? ManagerApprover { get; set; } // Made nullable
+        public string? CoordinatorApprover { get; set; } 
 
-        // Add workflow tracking
+        [StringLength(100)]
+        public string? ManagerApprover { get; set; } 
+
+        // Added workflow tracking
         public bool IsCoordinatorApproved { get; set; } = false;
         public bool IsManagerApproved { get; set; } = false;
 
         public Claim()
         {
-            Status ??= "Under Review"; // Updated to match workflow
+            Status ??= "Under Review"; 
             CurrentStage ??= "CoordinatorReview";
             AdditionalNotes ??= string.Empty;
             SupportingDocument ??= string.Empty;
             RejectionReason ??= string.Empty;
-            // Workflow properties can remain null - that's fine now
         }
     }
 }

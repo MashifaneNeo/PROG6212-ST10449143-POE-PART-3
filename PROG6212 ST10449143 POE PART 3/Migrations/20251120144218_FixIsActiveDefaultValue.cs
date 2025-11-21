@@ -20,7 +20,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Remove the default value if rolling back
             migrationBuilder.AlterColumn<bool>(
                 name: "IsActive",
                 table: "AspNetUsers",

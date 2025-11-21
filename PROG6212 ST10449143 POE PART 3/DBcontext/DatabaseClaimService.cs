@@ -16,7 +16,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
         {
             try
             {
-                // Ensure required fields are set
+                // Required fields are set
                 if (string.IsNullOrEmpty(claim.UserId))
                 {
                     throw new ArgumentException("UserId is required for claim");
@@ -27,15 +27,13 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                     throw new ArgumentException("Month is required for claim");
                 }
 
-                // Set default values for ALL properties including workflow properties
-                claim.Status ??= "Under Review"; // Changed to "Under Review" for workflow
+                claim.Status ??= "Under Review";
                 claim.CurrentStage ??= "CoordinatorReview";
                 claim.SubmittedDate = DateTime.Now;
                 claim.AdditionalNotes ??= string.Empty;
                 claim.SupportingDocument ??= string.Empty;
                 claim.RejectionReason ??= string.Empty;
 
-                // Initialize workflow properties - they can be null now due to migration
                 claim.CoordinatorApprover ??= null;
                 claim.ManagerApprover ??= null;
                 claim.CoordinatorReviewDate ??= null;
@@ -55,7 +53,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 Console.WriteLine($"Database error adding claim: {dbEx.Message}");
                 Console.WriteLine($"Inner exception: {dbEx.InnerException?.Message}");
 
-                // Check for specific constraint violations
                 if (dbEx.InnerException != null && dbEx.InnerException.Message.Contains("FK"))
                 {
                     throw new Exception("Invalid user reference. Please ensure you are logged in correctly.");
@@ -156,7 +153,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             }
         }
 
-        // NEW METHOD: Get claims for coordinator review
+        // Get claims for coordinator review
         public async Task<List<Claim>> GetClaimsForCoordinatorReviewAsync()
         {
             try
@@ -174,7 +171,7 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
             }
         }
 
-        // NEW METHOD: Get claims for manager review
+        // Get claims for manager review
         public async Task<List<Claim>> GetClaimsForManagerReviewAsync()
         {
             try

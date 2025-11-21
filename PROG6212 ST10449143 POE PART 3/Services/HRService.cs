@@ -287,13 +287,13 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
-                                        columns.ConstantColumn(25); // No.
-                                        columns.RelativeColumn();   // Lecturer
-                                        columns.ConstantColumn(80); // Month
-                                        columns.ConstantColumn(60); // Hours
-                                        columns.ConstantColumn(80); // Amount
-                                        columns.ConstantColumn(80); // Status
-                                        columns.ConstantColumn(80); // Submitted
+                                        columns.ConstantColumn(25); 
+                                        columns.RelativeColumn();  
+                                        columns.ConstantColumn(80); 
+                                        columns.ConstantColumn(60); 
+                                        columns.ConstantColumn(80); 
+                                        columns.ConstantColumn(80);
+                                        columns.ConstantColumn(80); 
                                     });
 
                                     table.Header(header =>
@@ -416,7 +416,6 @@ namespace PROG6212_ST10449143_POE_PART_1.Services
                 var user = await _userManager.FindByIdAsync(userId);
                 if (user == null) return (false, "User not found");
 
-                // Generate reset token and reset password
                 var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
                 var result = await _userManager.ResetPasswordAsync(user, resetToken, newPassword);
 
