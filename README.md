@@ -1,4 +1,7 @@
 # PROG6212 POE PART 3 ST10449143
+Links
+Github link: https://github.com/MashifaneNeo/PROG6212-ST10449143-POE-PART-3.git
+Youtube video link: https://youtu.be/JYkHS_2lwPM
 # Contract Monthly Claim System (CMCS)
 
 ## Project Evolution & Strategic Overview
